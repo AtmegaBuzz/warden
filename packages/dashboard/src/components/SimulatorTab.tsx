@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import {
-  Send, CheckCircle, XCircle, Loader2, Shield, Zap, Clock,
-  AlertTriangle, Lock, Globe, Activity, ChevronDown,
-  ChevronUp, Target, Gauge, Eye, Play, ArrowLeft, ArrowRight,
+  Send, CheckCircle, XCircle, Loader2, Shield, Zap,
+  Lock, Activity, ChevronDown,
+  ChevronUp, Target, Lightbulb, Play, ArrowLeft, ArrowRight,
   Snowflake, BarChart3, Circle,
 } from 'lucide-react'
 import { RiskMeter } from './RiskMeter'
@@ -839,71 +839,71 @@ function ScenarioRunner({
 
   const actualCompleted = new Set([...results.keys(), ...freezeResults.keys()]).size
 
+  const actBorderColor = scenario.act === 'normal' ? 'border-l-emerald-500'
+    : scenario.act === 'attack' ? 'border-l-red-500'
+    : 'border-l-orange-500'
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      {/* Act header */}
-      <div className={`border-l-4 ${actStyle.border} ${actStyle.bg} px-6 py-3 flex items-center justify-between`}>
-        <span className={`text-sm font-bold uppercase tracking-wide ${actStyle.text}`}>
-          {scenario.actTitle}
-        </span>
+      {/* Act header — compact inline */}
+      <div className="px-5 py-2.5 border-b border-slate-100 flex items-center justify-between">
         <div className="flex items-center gap-2">
+          <span className={`text-xs font-bold uppercase tracking-wide ${actStyle.text}`}>
+            {scenario.actTitle}
+          </span>
           {scenario.isDemo && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded border bg-purple-100 text-purple-700 border-purple-300">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border bg-slate-100 text-slate-500 border-slate-200">
               DEMO
             </span>
           )}
-          <span className={`text-xs font-mono px-2 py-0.5 rounded border ${actStyle.badge}`}>
-            Scenario {currentIndex + 1} of {SCENARIOS.length}
-          </span>
         </div>
+        <span className="text-[11px] font-mono text-slate-400">
+          {currentIndex + 1}/{SCENARIOS.length}
+        </span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1.5 bg-slate-100">
+      <div className="w-full h-1 bg-slate-100">
         <div
           className="h-full bg-orange-500 transition-all duration-500 ease-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      <div className="p-6 space-y-5">
+      <div className="p-5 space-y-4">
         {/* Scenario title */}
-        <h3 className="text-xl font-bold text-slate-900">
-          {scenario.isFreeze && <Snowflake className="w-5 h-5 inline mr-2 text-blue-500" />}
+        <h3 className="text-2xl font-bold text-slate-900">
+          {scenario.isFreeze && <Snowflake className="w-6 h-6 inline mr-2 text-blue-500" />}
           {scenario.title}
         </h3>
 
-        {/* Context card */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Context</p>
+        {/* Context card — left border colored by act */}
+        <div className={`border-l-[3px] ${actBorderColor} bg-slate-50 rounded-r-lg px-4 py-3`}>
           <p className="text-sm text-slate-700 leading-relaxed">{scenario.context}</p>
         </div>
 
-        {/* Transaction details */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Transaction Details</p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-xs text-slate-400">Agent</span>
-              <p className="text-sm font-medium text-slate-800">
-                {scenario.agentLabel}{' '}
-                <span className="text-xs text-slate-500 font-normal">({scenario.agentLimits})</span>
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400">Amount</span>
-              <p className="text-sm font-mono font-semibold text-slate-800">{scenario.amount} USDT</p>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400">To</span>
-              <p className="text-sm font-mono text-slate-600">
-                {scenario.recipient.slice(0, 8)}...{scenario.recipient.slice(-4)}
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400">Token / Chain</span>
-              <p className="text-sm text-slate-600">USDT (Sepolia)</p>
-            </div>
+        {/* Transaction details — 2x2 grid */}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Agent</span>
+            <span className="text-sm font-semibold text-slate-800">
+              {scenario.agentLabel}
+              <span className="text-[11px] text-slate-400 font-normal ml-1">({scenario.agentLimits})</span>
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Amount</span>
+            <span className="text-sm font-mono font-bold text-slate-900">{scenario.amount} USDT</span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">To</span>
+            <span className="text-sm font-mono text-slate-600">
+              {scenario.recipient.slice(0, 8)}...{scenario.recipient.slice(-4)}
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[11px] text-slate-400 uppercase tracking-wider">Chain</span>
+            <span className="text-sm text-slate-600">USDT / Sepolia</span>
           </div>
         </div>
 
@@ -916,32 +916,34 @@ function ScenarioRunner({
           />
         )}
 
-        {/* Run button */}
+        {/* Run button — 60% width centered */}
         {!result && !freezeResult && (
-          <button
-            onClick={() => void runScenario()}
-            disabled={running}
-            className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 disabled:text-slate-500 text-white py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-          >
-            {running ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {scenario.isFreeze ? 'Freezing & Testing...' : scenario.isDemo ? 'Demonstrating Rule...' : 'Evaluating Policy...'}
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                Run This Scenario
-              </>
-            )}
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={() => void runScenario()}
+              disabled={running}
+              className="w-3/5 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-300 disabled:text-slate-500 text-white py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              {running ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {scenario.isFreeze ? 'Freezing & Testing...' : scenario.isDemo ? 'Demonstrating Rule...' : 'Evaluating Policy...'}
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  Run This Scenario
+                </>
+              )}
+            </button>
+          </div>
         )}
 
         {/* Freeze scenario special result */}
         {scenario.isFreeze && freezeResult && (
           <div className="space-y-3 animate-fade-in-up">
-            <div className="rounded-lg p-4 border bg-blue-50 border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="rounded-lg p-3 border bg-blue-50 border-blue-200">
+              <div className="flex items-center gap-2 mb-1">
                 <Snowflake className="w-5 h-5 text-blue-600" />
                 <span className="text-sm font-bold text-blue-700 font-mono">
                   AGENT FROZEN
@@ -953,8 +955,8 @@ function ScenarioRunner({
             </div>
 
             {freezeResult.simulateAfterFreeze && (
-              <div className="rounded-lg p-4 border bg-red-50 border-red-200">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="rounded-lg p-3 border bg-red-50 border-red-200">
+                <div className="flex items-center gap-2 mb-1">
                   <XCircle className="w-5 h-5 text-red-600" />
                   <span className="text-sm font-bold text-red-700 font-mono">
                     POST-FREEZE TX BLOCKED
@@ -972,7 +974,7 @@ function ScenarioRunner({
             )}
 
             {freezeResult.unfroze && (
-              <div className="rounded-lg p-4 border bg-emerald-50 border-emerald-200">
+              <div className="rounded-lg p-3 border bg-emerald-50 border-emerald-200">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-5 h-5 text-emerald-600" />
                   <span className="text-sm font-bold text-emerald-700 font-mono">
@@ -987,73 +989,69 @@ function ScenarioRunner({
           </div>
         )}
 
-        {/* Normal result */}
+        {/* Normal result — prominent verdict */}
         {!scenario.isFreeze && result && (
           <div className={`rounded-lg p-4 border animate-fade-in-up ${
             result.approved ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'
           }`}>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {result.approved ? (
                 <>
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span className="text-sm font-bold text-emerald-700 font-mono">APPROVED</span>
+                  <CheckCircle className="w-6 h-6 text-emerald-600" />
+                  <span className="text-lg font-bold text-emerald-700 font-mono">APPROVED</span>
                 </>
               ) : (
                 <>
-                  <XCircle className="w-5 h-5 text-red-600" />
-                  <span className="text-sm font-bold text-red-700 font-mono">BLOCKED</span>
+                  <XCircle className="w-6 h-6 text-red-600" />
+                  <span className="text-lg font-bold text-red-700 font-mono">BLOCKED</span>
+                </>
+              )}
+              {result.onChain && result.txHash && (
+                <>
+                  <span className="bg-emerald-200 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">ON-CHAIN</span>
+                  <a
+                    href={result.etherscanUrl ?? `https://sepolia.etherscan.io/tx/${result.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-xs text-orange-600 hover:text-orange-700 hover:underline"
+                  >
+                    {result.txHash.slice(0, 10)}...{result.txHash.slice(-6)} &#8599;
+                  </a>
                 </>
               )}
               {scenario.isDemo && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-100 text-purple-600 border border-purple-200 ml-auto">
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200 ml-auto">
                   Demonstrated
                 </span>
               )}
             </div>
 
             {result.riskScore !== undefined && (
-              <div className="mb-2"><RiskMeter score={result.riskScore} /></div>
+              <div className="mt-3"><RiskMeter score={result.riskScore} /></div>
             )}
 
             {result.approved && result.transactionDetails && (
-              <p className="text-sm font-mono text-emerald-800 mb-1">
+              <p className="text-sm font-mono text-emerald-800 mt-2">
                 {(Number(result.transactionDetails.value) / USDT_DIVISOR).toFixed(2)} USDT sent
               </p>
             )}
 
             {!result.approved && result.ruleTriggered && (
-              <div className="mb-2">
+              <div className="mt-2">
                 <span className="inline-block bg-red-100 border border-red-200 text-red-700 text-xs font-mono px-2 py-0.5 rounded-full">
                   Rule: {result.ruleTriggered}
                 </span>
               </div>
             )}
 
-            <p className="text-xs text-slate-600">{result.reason}</p>
+            <p className="text-xs text-slate-600 mt-2">{result.reason}</p>
 
-            {/* On-chain transaction link */}
-            {result.onChain && result.txHash && (
-              <div className="mt-3 pt-3 border-t border-emerald-200">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="bg-emerald-200 text-emerald-800 font-bold px-2 py-0.5 rounded-full text-[10px]">ON-CHAIN</span>
-                  <a
-                    href={result.etherscanUrl ?? `https://sepolia.etherscan.io/tx/${result.txHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-mono text-orange-600 hover:text-orange-700 hover:underline"
-                  >
-                    {result.txHash.slice(0, 10)}...{result.txHash.slice(-6)} ↗
-                  </a>
-                </div>
-                {result.blockNumber && (
-                  <p className="text-[10px] text-slate-400 font-mono mt-1">
-                    Block: {result.blockNumber} | Gas: {result.gasUsed ?? 'N/A'}
-                  </p>
-                )}
-              </div>
+            {result.onChain && result.txHash && result.blockNumber && (
+              <p className="text-[10px] text-slate-400 font-mono mt-1">
+                Block: {result.blockNumber} | Gas: {result.gasUsed ?? 'N/A'}
+              </p>
             )}
 
-            {/* Chain error */}
             {result.chainError && (
               <div className="mt-2 bg-amber-50 border border-amber-200 rounded p-2">
                 <p className="text-[10px] text-amber-700 font-mono">Chain error: {result.chainError}</p>
@@ -1074,9 +1072,9 @@ function ScenarioRunner({
 
         {/* Lesson / What happened */}
         {(result || freezeResult) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 animate-fade-in-up">
-            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-              <Eye className="w-3.5 h-3.5" />
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 animate-fade-in-up">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <Lightbulb className="w-3.5 h-3.5" />
               What Happened
             </p>
             <p className="text-sm text-slate-700 leading-relaxed">{scenario.lesson}</p>
@@ -1084,7 +1082,7 @@ function ScenarioRunner({
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           <button
             onClick={goPrev}
             disabled={currentIndex === 0}
@@ -1094,8 +1092,8 @@ function ScenarioRunner({
             Previous
           </button>
 
-          {/* Scenario dots */}
-          <div className="flex items-center gap-1.5">
+          {/* Scenario dots — larger for clickability */}
+          <div className="flex items-center gap-2">
             {SCENARIOS.map((s, i) => {
               const hasResult = results.has(s.id) || freezeResults.has(s.id)
               const isCurrent = i === currentIndex
@@ -1103,12 +1101,12 @@ function ScenarioRunner({
                 <button
                   key={s.id}
                   onClick={() => setCurrentIndex(i)}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  className={`w-3.5 h-3.5 rounded-full transition-all ${
                     isCurrent
-                      ? 'bg-orange-500 scale-125'
+                      ? 'bg-orange-500 ring-2 ring-orange-200'
                       : hasResult
-                        ? 'bg-emerald-400'
-                        : 'bg-slate-300'
+                        ? 'bg-emerald-400 hover:bg-emerald-500'
+                        : 'bg-slate-300 hover:bg-slate-400'
                   }`}
                   aria-label={`Go to scenario ${i + 1}`}
                 />
@@ -1121,7 +1119,7 @@ function ScenarioRunner({
             disabled={currentIndex === SCENARIOS.length - 1}
             className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:cursor-not-allowed transition-colors"
           >
-            Next Scenario
+            Next
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -1269,7 +1267,7 @@ function FreeformSimulator({
   const [expanded, setExpanded] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<FreeformAgent>(FREEFORM_AGENTS[0])
   const [amount, setAmount] = useState('')
-  const [recipient, setRecipient] = useState(RECIPIENT_PRESETS[0]?.address ?? '')
+  const [recipient] = useState(RECIPIENT_PRESETS[0]?.address ?? '')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<PolicyDecision | null>(null)
 
@@ -1290,20 +1288,20 @@ function FreeformSimulator({
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-6 py-4 text-left"
+        className="w-full flex items-center justify-between px-5 py-3 text-left"
       >
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-semibold text-slate-700">Advanced: Free-form Simulator</span>
+          <span className="text-sm font-semibold text-slate-700">Custom Simulator</span>
           <span className="text-xs text-slate-400">Test any agent with custom amounts</span>
         </div>
         {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
       </button>
 
       {expanded && (
-        <div className="px-6 pb-6 space-y-4 border-t border-slate-100 pt-4">
-          {/* Agent selector */}
-          <div className="grid grid-cols-3 gap-3">
+        <div className="px-5 pb-5 space-y-3 border-t border-slate-100 pt-3">
+          {/* Agent selector — 3 compact buttons */}
+          <div className="grid grid-cols-3 gap-2">
             {FREEFORM_AGENTS.map(agent => {
               const AgentIcon = agent.icon
               const isSelected = selectedAgent.id === agent.id
@@ -1311,42 +1309,27 @@ function FreeformSimulator({
                 <button
                   key={agent.id}
                   onClick={() => setSelectedAgent(agent)}
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  className={`px-3 py-2 rounded-lg border-2 text-left transition-all ${
                     isSelected
                       ? `${agent.borderColor} ${agent.badgeBg}`
                       : 'border-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <AgentIcon className="w-4 h-4" style={{ color: agent.accentColor }} />
                     <span className="text-sm font-semibold text-slate-800">{agent.label}</span>
                   </div>
-                  <div className="text-[11px] text-slate-500 space-y-0.5">
-                    <div className="flex justify-between">
-                      <span className="flex items-center gap-1"><Target className="w-3 h-3" /> Max/tx</span>
-                      <span className="font-mono">{agent.maxPerTx}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="flex items-center gap-1"><Gauge className="w-3 h-3" /> Daily</span>
-                      <span className="font-mono">{agent.dailyLimit}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Cooldown</span>
-                      <span className="font-mono">{agent.cooldown}s</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Approval</span>
-                      <span className="font-mono">{agent.requireApprovalAbove}</span>
-                    </div>
-                  </div>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    max {agent.maxPerTx}/tx &middot; {agent.dailyLimit}/day
+                  </p>
                 </button>
               )
             })}
           </div>
 
-          {/* Amount + Recipient */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
+          {/* Amount + Simulate inline */}
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
               <label className="text-xs text-slate-500 block mb-1">Amount (USDT)</label>
               <input
                 type="number"
@@ -1355,7 +1338,7 @@ function FreeformSimulator({
                 placeholder="Enter amount..."
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               />
-              <div className="flex flex-wrap gap-1 mt-1.5">
+              <div className="flex flex-wrap gap-1 mt-1">
                 {[1, 5, 10, 25, 50, 100, 200].map(qa => (
                   <button
                     key={qa}
@@ -1367,31 +1350,15 @@ function FreeformSimulator({
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-xs text-slate-500 block mb-1">Recipient</label>
-              <select
-                value={recipient}
-                onChange={(e) => setRecipient(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-mono text-slate-800 outline-none focus:ring-2 focus:ring-orange-500"
-              >
-                {RECIPIENT_PRESETS.map(r => (
-                  <option key={r.address} value={r.address}>
-                    {r.label} ({r.address.slice(0, 8)}...{r.address.slice(-4)})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              onClick={() => void handleSimulate()}
+              disabled={loading || !amount || Number(amount) <= 0}
+              className="bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shrink-0"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {loading ? 'Evaluating...' : 'Simulate'}
+            </button>
           </div>
-
-          {/* Simulate button */}
-          <button
-            onClick={() => void handleSimulate()}
-            disabled={loading || !amount || Number(amount) <= 0}
-            className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {loading ? 'Evaluating...' : 'Simulate Transfer'}
-          </button>
 
           {/* Result */}
           {result && (
@@ -1468,57 +1435,45 @@ interface Props {
 export function SimulatorTab({ onSimulate, auditLog: _auditLog }: Props) {
   const [results, setResults] = useState<Map<number, PolicyDecision>>(new Map())
   const [freezeResults, setFreezeResults] = useState<Map<number, FreezeResult>>(new Map())
+  const [rulesExpanded, setRulesExpanded] = useState(false)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Hero */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-        <div className="flex items-start gap-4">
-          <div className="bg-orange-100 p-3 rounded-xl shrink-0">
-            <Shield className="w-8 h-8 text-orange-600" />
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-orange-100 p-2 rounded-lg shrink-0">
+            <Shield className="w-5 h-5 text-orange-600" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Policy Enforcement Simulator</h2>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              See how ClawVault protects AI agent wallets in real-world scenarios.
-              Every transaction is evaluated against{' '}
-              <span className="font-mono text-orange-600 font-semibold">10 policy rules</span>{' '}
-              before reaching the blockchain.
-            </p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-medium">Per-Tx Limits</span>
-              <span className="bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 text-xs font-medium">Daily Caps</span>
-              <span className="bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-3 py-1 text-xs font-medium">Cooldown</span>
-              <span className="bg-purple-50 text-purple-700 border border-purple-200 rounded-full px-3 py-1 text-xs font-medium">Anomaly Detection</span>
-              <span className="bg-red-50 text-red-700 border border-red-200 rounded-full px-3 py-1 text-xs font-medium">Risk Scoring 0-100</span>
-              <span className="bg-orange-50 text-orange-700 border border-orange-200 rounded-full px-3 py-1 text-xs font-medium">Human Approval</span>
-              <span className="bg-slate-100 text-slate-700 border border-slate-200 rounded-full px-3 py-1 text-xs font-medium">Token Allowlist</span>
-              <span className="bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full px-3 py-1 text-xs font-medium">Chain Allowlist</span>
-              <span className="bg-rose-50 text-rose-700 border border-rose-200 rounded-full px-3 py-1 text-xs font-medium">Recipient Blocklist</span>
-              <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-3 py-1 text-xs font-medium">EIP-7702 On-chain</span>
+          <div className="flex-1">
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-lg font-bold text-slate-900">Live Testnet &mdash; Policy Enforcement</h2>
+              <span className="bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">Live on Sepolia</span>
             </div>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Real USDT transfers on Sepolia. Every approved transaction settles on-chain.
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-slate-600">
+                <span className="font-mono text-orange-600 font-semibold">10 policy rules</span> evaluated on every transaction
+              </span>
+              <button
+                onClick={() => setRulesExpanded(!rulesExpanded)}
+                className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-0.5"
+              >
+                {rulesExpanded ? 'Hide rules' : 'View all rules'}
+                {rulesExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            </div>
+            {rulesExpanded && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {['Per-Tx Limits', 'Daily Caps', 'Cooldown', 'Anomaly Detection', 'Risk Scoring', 'Human Approval', 'Token Allowlist', 'Chain Allowlist', 'Recipient Blocklist', 'EIP-7702 On-chain'].map(rule => (
+                  <span key={rule} className="bg-slate-100 text-slate-600 border border-slate-200 rounded-full px-2.5 py-0.5 text-[11px] font-medium">{rule}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* How it works — compact */}
-      <div className="grid grid-cols-4 gap-3">
-        {[
-          { step: '1', label: 'Agent sends transaction', icon: Send, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { step: '2', label: 'PolicyEngine evaluates 10 rules', icon: Shield, color: 'text-orange-600', bg: 'bg-orange-50' },
-          { step: '3', label: 'Risk score 0-100 computed', icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { step: '4', label: 'Approved or Blocked', icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-        ].map(s => (
-          <div key={s.step} className="bg-white rounded-lg border border-slate-200 p-3 flex items-center gap-3">
-            <div className={`${s.bg} rounded-lg p-2 shrink-0`}>
-              <s.icon className={`w-4 h-4 ${s.color}`} />
-            </div>
-            <div>
-              <span className="text-[10px] font-mono text-slate-400">Step {s.step}</span>
-              <p className="text-xs font-medium text-slate-700">{s.label}</p>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Scenario Runner — main feature */}
@@ -1534,34 +1489,22 @@ export function SimulatorTab({ onSimulate, auditLog: _auditLog }: Props) {
       <ScenarioComparisonTable results={results} freezeResults={freezeResults} />
 
       {/* On-chain verification links */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Verify on Etherscan — everything is real, on-chain</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <a href="https://sepolia.etherscan.io/address/0xB40881D3066134514e9ec4CD0B848C49ba7Fe8d0" target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2.5 hover:bg-orange-100 transition-colors group">
-            <Shield className="w-4 h-4 text-orange-600 shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-orange-700 group-hover:underline">PolicyDelegate Contract</p>
-              <p className="text-[10px] font-mono text-orange-500">0xB408...e8d0</p>
-            </div>
-          </a>
-          <a href={`https://sepolia.etherscan.io/token/${SEPOLIA_USDT}`} target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5 hover:bg-blue-100 transition-colors group">
-            <Globe className="w-4 h-4 text-blue-600 shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-blue-700 group-hover:underline">Sepolia USDT Token</p>
-              <p className="text-[10px] font-mono text-blue-500">{SEPOLIA_USDT.slice(0, 8)}...{SEPOLIA_USDT.slice(-4)}</p>
-            </div>
-          </a>
-          <a href="https://sepolia.etherscan.io/address/0x8d56E94a02F06320BDc68FAfE23DEc9Ad7463496" target="_blank" rel="noreferrer"
-            className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2.5 hover:bg-emerald-100 transition-colors group">
-            <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div>
-              <p className="text-xs font-semibold text-emerald-700 group-hover:underline">Deployer Wallet</p>
-              <p className="text-[10px] font-mono text-emerald-500">0x8d56...3496 | 10,000 USDT</p>
-            </div>
-          </a>
-        </div>
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-2.5 flex items-center gap-3 text-xs">
+        <span className="text-slate-500 font-medium shrink-0">Verified on Etherscan:</span>
+        <a href="https://sepolia.etherscan.io/address/0xB40881D3066134514e9ec4CD0B848C49ba7Fe8d0" target="_blank" rel="noreferrer"
+          className="text-orange-600 hover:text-orange-700 hover:underline font-medium whitespace-nowrap">
+          PolicyDelegate &#8599;
+        </a>
+        <span className="text-slate-300">|</span>
+        <a href={`https://sepolia.etherscan.io/token/${SEPOLIA_USDT}`} target="_blank" rel="noreferrer"
+          className="text-orange-600 hover:text-orange-700 hover:underline font-medium whitespace-nowrap">
+          USDT Token &#8599;
+        </a>
+        <span className="text-slate-300">|</span>
+        <a href="https://sepolia.etherscan.io/address/0x8d56E94a02F06320BDc68FAfE23DEc9Ad7463496" target="_blank" rel="noreferrer"
+          className="text-orange-600 hover:text-orange-700 hover:underline font-medium whitespace-nowrap">
+          Deployer Wallet &#8599;
+        </a>
       </div>
 
       {/* Free-form Simulator */}

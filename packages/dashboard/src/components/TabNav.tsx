@@ -1,4 +1,4 @@
-const TABS = ['Simulator', 'Live Dashboard', 'Architecture', 'EIP-7702', 'Audit Log'] as const
+const TABS = ['Live Testnet', 'Live Dashboard', 'Architecture', 'EIP-7702', 'Audit Log'] as const
 
 export type Tab = (typeof TABS)[number]
 
