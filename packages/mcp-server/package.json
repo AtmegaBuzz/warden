@@ -1,9 +1,9 @@
 {
-  "name": "@clawvault/mcp-server",
-  "version": "0.2.0",
+  "name": "@aspect-warden/mcp-server",
+  "version": "0.3.0",
   "type": "module",
   "bin": {
-    "clawvault-mcp": "./dist/index.js"
+    "warden-mcp": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "scripts": {

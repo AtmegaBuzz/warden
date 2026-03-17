@@ -1,6 +1,6 @@
 {
-  "name": "@clawvault/api-server",
-  "version": "0.2.0",
+  "name": "@aspect-warden/api-server",
+  "version": "0.3.0",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {

@@ -1,6 +1,6 @@
 {
-  "name": "@clawvault/dashboard",
-  "version": "0.2.0",
+  "name": "@aspect-warden/dashboard",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {

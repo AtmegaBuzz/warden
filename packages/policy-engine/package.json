@@ -1,6 +1,6 @@
 {
-  "name": "@clawvault/policy-engine",
-  "version": "0.2.0",
+  "name": "@aspect-warden/policy-engine",
+  "version": "0.3.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

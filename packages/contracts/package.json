@@ -1,6 +1,6 @@
 {
-  "name": "@clawvault/contracts",
-  "version": "0.2.0",
+  "name": "@aspect-warden/contracts",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "compile": "hardhat compile",
