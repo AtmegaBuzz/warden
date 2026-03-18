@@ -1,4 +1,4 @@
-# ClawVault
+# Warden
 
 **The firewall for AI agent wallets** — EIP-7702 policy enforcement powered by Tether WDK
 
@@ -6,12 +6,12 @@
 
 ## What It Does
 
-AI agents with wallets need guardrails. ClawVault is a two-layer policy enforcement system that wraps any AI agent wallet with configurable spending limits, anomaly detection, and risk scoring — enforced both off-chain in TypeScript (for speed) and on-chain in Solidity (for tamper-proof guarantees). Using EIP-7702, agents keep their original EOA address while gaining smart-contract-level policy enforcement that the agent owner can configure and revoke at any time.
+AI agents with wallets need guardrails. Warden is a two-layer policy enforcement system that wraps any AI agent wallet with configurable spending limits, anomaly detection, and risk scoring — enforced both off-chain in TypeScript (for speed) and on-chain in Solidity (for tamper-proof guarantees). Using EIP-7702, agents keep their original EOA address while gaining smart-contract-level policy enforcement that the agent owner can configure and revoke at any time.
 
 ## Architecture
 
 ```
-AI Agent ──> ClawVault Policy Engine ──> WDK Wallet ──> Sepolia
+AI Agent ──> Warden Policy Engine ──> WDK Wallet ──> Sepolia
                     |                        |
              TypeScript layer          EIP-7702 Delegation
            (speed + flexibility)    (agent keeps EOA address)
@@ -55,8 +55,8 @@ AI Agent ──> ClawVault Policy Engine ──> WDK Wallet ──> Sepolia
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_REPO/clawvault.git
-cd clawvault
+git clone https://github.com/YOUR_REPO/warden.git
+cd warden
 npm install
 
 # Run the multi-agent demo (standalone, no env vars needed)
@@ -74,7 +74,7 @@ cd packages/dashboard && npm run dev
 ## Using as npm Module
 
 ```typescript
-import { PolicyEngine, EIP7702Manager, AuditLogger } from '@clawvault/policy-engine';
+import { PolicyEngine, EIP7702Manager, AuditLogger } from '@warden/policy-engine';
 
 const engine = new PolicyEngine({
   agentId: 'my-agent',
@@ -105,7 +105,7 @@ if (decision.approved) {
 ## Project Structure
 
 ```
-clawvault/
+warden/
 ├── packages/
 │   ├── contracts/          # Solidity — PolicyDelegate.sol + Hardhat tests
 │   ├── policy-engine/      # TypeScript — PolicyEngine, AuditLogger, EIP7702Manager
@@ -117,7 +117,7 @@ clawvault/
 └── package.json            # npm workspaces root
 ```
 
-## Why ClawVault?
+## Why Warden?
 
 - Only project with **real EIP-7702 delegation** — not just documentation, working on-chain
 - **Two-layer defense**: TypeScript speed + Solidity tamper-proof guarantees
