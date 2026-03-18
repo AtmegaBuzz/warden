@@ -1,6 +1,7 @@
 import {
   ArrowRight, Shield, Undo2, ExternalLink,
   Key, Timer, DollarSign, Lock,
+  FileCheck, Layers, Fingerprint, Frame,
 } from 'lucide-react'
 
 const DELEGATION_CODE = `// This is REAL code from our EIP7702Manager.ts
@@ -270,6 +271,95 @@ export function EIP7702Tab(): React.JSX.Element {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Section E: Related Standards */}
+      <section>
+        <h2 className="text-lg font-semibold text-slate-800 mb-1">Related Standards We Implement</h2>
+        <p className="text-sm text-slate-500 mb-6">
+          ClawVault builds on a composable stack of EIPs and ERCs beyond 7702.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {([
+            {
+              icon: FileCheck,
+              standard: 'ERC-7710',
+              title: 'Smart Contract Delegation',
+              subtitle: 'Standard interface for scoped, policy-constrained delegations',
+              detail: 'ClawVault\u2019s session keys follow the ERC-7710 Delegator pattern \u2014 redeemDelegations() validates authority before execution.',
+              status: 'implemented' as const,
+            },
+            {
+              icon: Key,
+              standard: 'ERC-7715',
+              title: 'Permission Granting',
+              subtitle: 'Standard JSON-RPC for requesting scoped wallet permissions',
+              detail: 'AI agents request permissions via wallet_grantPermissions \u2014 spending limits, time windows, contract allowlists.',
+              status: 'implemented' as const,
+            },
+            {
+              icon: Layers,
+              standard: 'ERC-7821',
+              title: 'Batch Executor',
+              subtitle: 'Standard execute interface for EIP-7702 delegated EOAs',
+              detail: 'Atomic multi-call execution: approve + swap in one transaction, each call policy-validated.',
+              status: 'implemented' as const,
+            },
+            {
+              icon: Fingerprint,
+              standard: 'ERC-8004',
+              title: 'Trustless Agents',
+              subtitle: 'On-chain agent identity, reputation, and validation registries',
+              detail: 'Agents register identity NFTs; reputation gates delegation authority.',
+              addresses: ['Identity: 0x8004A169...', 'Reputation: 0x8004BAa1...'],
+              status: 'implemented' as const,
+            },
+            {
+              icon: Frame,
+              standard: 'EIP-8141',
+              title: 'Frame Transactions (Future)',
+              subtitle: 'Native account abstraction via frame-based transactions',
+              detail: 'When Hegota fork lands (H2 2026), ClawVault policies become native validation frames.',
+              status: 'future' as const,
+            },
+          ] as const).map(card => {
+            const Icon = card.icon
+            const isImplemented = card.status === 'implemented'
+            const badgeClass = isImplemented
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-slate-100 text-slate-600'
+            const badgeLabel = isImplemented ? 'Implemented' : 'Roadmap'
+            const borderClass = isImplemented ? 'border-emerald-200' : 'border-slate-200'
+
+            return (
+              <div key={card.standard} className={`bg-white rounded-xl border ${borderClass} shadow-sm p-6 flex flex-col`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Icon className="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-orange-600">{card.standard}</span>
+                      <h3 className="font-semibold text-slate-800 text-sm">{card.title}</h3>
+                    </div>
+                  </div>
+                  <span className={`${badgeClass} text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap`}>
+                    {badgeLabel}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mb-2">{card.subtitle}</p>
+                <p className="text-xs text-slate-600 leading-relaxed flex-1">{card.detail}</p>
+                {'addresses' in card && card.addresses && (
+                  <div className="mt-3 space-y-1">
+                    {card.addresses.map(addr => (
+                      <p key={addr} className="text-[10px] font-mono text-slate-400">{addr}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       </section>
     </div>

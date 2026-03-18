@@ -3,6 +3,7 @@ import {
   Bot, Server, Shield, FileText, Key, Cpu,
   Wallet, Code2, Link, Layers, Wrench, Blocks,
   ChevronDown, ChevronUp, ArrowDown, ArrowRight,
+  CheckCircle, XCircle,
 } from 'lucide-react'
 
 type ExpandedBox = 'mcp' | 'policyEngine' | 'eip7702' | 'contract' | null
@@ -277,6 +278,46 @@ const TECH_STACK = [
     description: 'Interactive simulator + live dashboard. 5-tab SPA with scenario-driven demos. Recharts for data visualization.' },
 ] as const
 
+type StandardStatus = 'implemented' | 'planned' | 'future'
+
+const STATUS_STYLES: Record<StandardStatus, { border: string; badge: string; badgeText: string; label: string }> = {
+  implemented: { border: 'border-emerald-300', badge: 'bg-emerald-100 text-emerald-700', badgeText: 'Implemented', label: 'bg-emerald-600' },
+  planned: { border: 'border-amber-300', badge: 'bg-amber-100 text-amber-700', badgeText: 'In Progress', label: 'bg-amber-600' },
+  future: { border: 'border-slate-300', badge: 'bg-slate-100 text-slate-600', badgeText: 'Roadmap', label: 'bg-slate-500' },
+}
+
+const STANDARDS_STACK: { standard: string; title: string; description: string; status: StandardStatus }[] = [
+  { standard: 'ERC-7715', title: 'Permission Granting (JSON-RPC)', description: 'User/dApp requests scoped wallet permissions via standardized JSON-RPC', status: 'implemented' },
+  { standard: 'ERC-7710', title: 'Delegation Interface', description: 'Scoped, policy-constrained delegation enforcement on-chain', status: 'implemented' },
+  { standard: 'ERC-7821', title: 'Batch Executor Interface', description: 'Atomic multi-call execution for EIP-7702 delegated EOAs', status: 'implemented' },
+  { standard: 'EIP-7702', title: 'EOA Code Delegation', description: 'Upgrade any EOA to a smart account — same address, reversible', status: 'implemented' },
+  { standard: 'ERC-8004', title: 'Agent Identity & Reputation', description: 'On-chain agent identity NFTs and reputation-gated trust', status: 'implemented' },
+  { standard: 'ERC-7579', title: 'Modular Account Hooks', description: 'Portable policy modules for modular smart accounts', status: 'future' },
+]
+
+const COMPETITOR_FEATURES: { feature: string; clawvault: boolean; l1ad: boolean | null; policyLayer: boolean | null; litProtocol: boolean; crossmint: boolean }[] = [
+  { feature: 'EIP-7702 delegation', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'On-chain enforcement', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'Off-chain policy engine', clawvault: true, l1ad: true, policyLayer: true, litProtocol: false, crossmint: false },
+  { feature: '10 policy rules', clawvault: true, l1ad: true, policyLayer: null, litProtocol: false, crossmint: false },
+  { feature: 'Risk scoring 0-100', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'Anomaly detection', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'ERC-8004 identity', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'MCP server (11 tools)', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'Real testnet transactions', clawvault: true, l1ad: false, policyLayer: null, litProtocol: false, crossmint: false },
+  { feature: 'Session keys', clawvault: true, l1ad: false, policyLayer: null, litProtocol: false, crossmint: false },
+  { feature: 'Emergency freeze', clawvault: true, l1ad: true, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'Self-custodial (WDK)', clawvault: true, l1ad: true, policyLayer: false, litProtocol: true, crossmint: false },
+  { feature: 'ERC-7710 delegation', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'ERC-7715 permissions', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+]
+
+function CompetitorCell({ value }: { value: boolean | null }) {
+  if (value === null) return <span className="text-slate-400 text-sm">?</span>
+  if (value) return <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />
+  return <XCircle className="w-4 h-4 text-red-400 mx-auto" />
+}
+
 export function ArchitectureTab(): React.JSX.Element {
   return (
     <div className="space-y-10">
@@ -367,6 +408,76 @@ export function ArchitectureTab(): React.JSX.Element {
                   <td className="px-5 py-3.5 font-bold text-slate-700 text-sm">{label}</td>
                   <td className="px-5 py-3.5 text-orange-800 font-mono text-sm bg-orange-50 font-semibold">{eip7702}</td>
                   <td className="px-5 py-3.5 text-slate-500 font-mono text-sm">{erc4337}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Section E: Standards Stack */}
+      <section>
+        <h2 className="text-2xl font-bold text-slate-900 mb-1">Standards Stack</h2>
+        <p className="text-sm text-slate-500 mb-4">The full EIP/ERC standards ClawVault implements — from permission request to on-chain execution.</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="space-y-0">
+            {STANDARDS_STACK.map((item, i) => {
+              const style = STATUS_STYLES[item.status]
+              const isFirst = i === 0
+              const isLast = i === STANDARDS_STACK.length - 1
+              return (
+                <div
+                  key={item.standard}
+                  className={`border-2 ${style.border} px-5 py-4 flex items-center justify-between gap-4 ${
+                    isFirst ? 'rounded-t-xl' : ''
+                  } ${isLast ? 'rounded-b-xl' : ''} ${!isFirst ? '-mt-[2px]' : ''}`}
+                >
+                  <div className="flex items-center gap-4 min-w-0">
+                    <span className={`${style.label} text-white text-xs font-bold px-2.5 py-1 rounded-md whitespace-nowrap`}>
+                      {item.standard}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                      <p className="text-xs text-slate-500 truncate">{item.description}</p>
+                    </div>
+                  </div>
+                  <span className={`${style.badge} text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap`}>
+                    {style.badgeText}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Section F: Competitor Comparison */}
+      <section>
+        <h2 className="text-2xl font-bold text-slate-900 mb-1">Competitor Comparison</h2>
+        <p className="text-sm text-slate-500 mb-4">Feature-by-feature comparison against other agent wallet and policy platforms.</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                <th className="bg-slate-100 px-4 py-3.5 text-left font-bold text-slate-600 text-xs uppercase tracking-wider">Feature</th>
+                <th className="bg-orange-50 px-4 py-3.5 text-center font-bold text-orange-800 text-xs uppercase tracking-wider border-x border-orange-200">ClawVault</th>
+                <th className="bg-slate-100 px-4 py-3.5 text-center font-bold text-slate-600 text-xs uppercase tracking-wider">L1AD</th>
+                <th className="bg-slate-100 px-4 py-3.5 text-center font-bold text-slate-600 text-xs uppercase tracking-wider">PolicyLayer</th>
+                <th className="bg-slate-100 px-4 py-3.5 text-center font-bold text-slate-600 text-xs uppercase tracking-wider">LIT Protocol</th>
+                <th className="bg-slate-100 px-4 py-3.5 text-center font-bold text-slate-600 text-xs uppercase tracking-wider">Crossmint</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {COMPETITOR_FEATURES.map((row, i) => (
+                <tr key={row.feature} className={i % 2 === 1 ? 'bg-slate-50/50' : ''}>
+                  <td className="px-4 py-3 font-medium text-slate-700 text-sm">{row.feature}</td>
+                  <td className="px-4 py-3 text-center bg-orange-50/60 border-x border-orange-100">
+                    <CompetitorCell value={row.clawvault} />
+                  </td>
+                  <td className="px-4 py-3 text-center"><CompetitorCell value={row.l1ad} /></td>
+                  <td className="px-4 py-3 text-center"><CompetitorCell value={row.policyLayer} /></td>
+                  <td className="px-4 py-3 text-center"><CompetitorCell value={row.litProtocol} /></td>
+                  <td className="px-4 py-3 text-center"><CompetitorCell value={row.crossmint} /></td>
                 </tr>
               ))}
             </tbody>

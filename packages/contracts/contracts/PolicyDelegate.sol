@@ -4,7 +4,20 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract PolicyDelegate is ReentrancyGuard {
+/// @title ERC-7821 Minimal Batch Executor
+interface IERC7821 {
+    function execute(bytes32 mode, bytes calldata executionData) external payable;
+}
+
+/// @title ERC-7710 Delegation Redemption
+interface IERC7710Delegator {
+    function redeemDelegations(
+        bytes[] calldata delegations,
+        bytes[] calldata actions
+    ) external;
+}
+
+contract PolicyDelegate is ReentrancyGuard, IERC7821, IERC7710Delegator {
 
     string public constant VERSION = "ClawVault-PolicyDelegate-v2";
 
@@ -55,6 +68,17 @@ contract PolicyDelegate is ReentrancyGuard {
     event RecoveryExecuted(address indexed eoa, address indexed newOwner);
     event RecoveryCancelled(address indexed eoa);
     event Executed(address indexed eoa, address indexed to, uint256 value, bytes data, bool success);
+
+    // ERC-7715 permission lifecycle events
+    event PermissionsGranted(
+        address indexed eoa,
+        address indexed grantee,
+        uint256 maxPerTx,
+        uint256 dailyLimit,
+        uint48 validUntil,
+        uint256 cooldownSeconds
+    );
+    event PermissionsRevoked(address indexed eoa, address indexed grantee);
 
     // ============ Modifiers ============
 
@@ -128,6 +152,7 @@ contract PolicyDelegate is ReentrancyGuard {
 
         sessionKeyList[eoa].push(key);
         emit SessionKeyCreated(eoa, key, maxPerTx, dailyLimit, validUntil);
+        emit PermissionsGranted(eoa, key, maxPerTx, dailyLimit, validUntil, cooldownSeconds);
     }
 
     function revokeSessionKey(
@@ -137,6 +162,7 @@ contract PolicyDelegate is ReentrancyGuard {
         require(sessionKeys[eoa][key].active, "Key not active");
         sessionKeys[eoa][key].active = false;
         emit SessionKeyRevoked(eoa, key);
+        emit PermissionsRevoked(eoa, key);
     }
 
     // ============ Token & Recipient Allowlists ============
@@ -315,6 +341,99 @@ contract PolicyDelegate is ReentrancyGuard {
         policies[eoa].recoveryInitiated = 0;
         policies[eoa].pendingOwner = address(0);
         emit RecoveryCancelled(eoa);
+    }
+
+    // ============ ERC-7821 Minimal Batch Executor ============
+
+    /// @notice ERC-7821 execute — single or batch call with embedded session key
+    /// @param mode First byte: 0x00 = single, 0x01 = batch. Bytes [1:21] = session key address.
+    /// @param executionData ABI-encoded call data (single: (target,value,data), batch: (Call[]))
+    function execute(
+        bytes32 mode,
+        bytes calldata executionData
+    ) external payable override nonReentrant onlyInitialized(msg.sender) notFrozen(msg.sender) {
+        uint8 modeType = uint8(mode[0]);
+        address sessionKey = address(bytes20(mode << 8));
+
+        if (modeType == 0x00) {
+            (address target, uint256 value, bytes memory data) =
+                abi.decode(executionData, (address, uint256, bytes));
+
+            bool approved = validateTransaction(msg.sender, sessionKey, target, value, address(0));
+            require(approved, "Policy validation failed");
+
+            (bool success, ) = target.call{value: value}(data);
+            require(success, "Execution failed");
+
+            emit Executed(msg.sender, target, value, data, success);
+        } else if (modeType == 0x01) {
+            (address[] memory targets, uint256[] memory values, bytes[] memory datas) =
+                abi.decode(executionData, (address[], uint256[], bytes[]));
+
+            require(targets.length == values.length && values.length == datas.length, "Array length mismatch");
+            require(targets.length > 0, "Empty batch");
+            require(targets.length <= 10, "Max 10 calls per batch");
+
+            for (uint256 i = 0; i < targets.length; i++) {
+                bool approved = validateTransaction(msg.sender, sessionKey, targets[i], values[i], address(0));
+                require(approved, "Policy validation failed for batch item");
+
+                (bool success, ) = targets[i].call{value: values[i]}(datas[i]);
+                require(success, "Batch execution failed");
+
+                emit Executed(msg.sender, targets[i], values[i], datas[i], success);
+            }
+        } else {
+            revert("Unsupported mode");
+        }
+    }
+
+    // ============ ERC-7710 Delegation Redemption ============
+
+    /// @notice ERC-7710 redeemDelegations — validate delegation-based session keys and execute actions
+    /// @param delegations Each entry: abi.encode(sessionKey, validUntil, maxPerTx, dailyLimit)
+    /// @param actions Each entry: abi.encode(target, value, data, token)
+    function redeemDelegations(
+        bytes[] calldata delegations,
+        bytes[] calldata actions
+    ) external override nonReentrant onlyInitialized(msg.sender) notFrozen(msg.sender) {
+        require(delegations.length == actions.length, "Delegation/action length mismatch");
+        require(delegations.length > 0, "Empty delegations");
+        require(delegations.length <= 10, "Max 10 delegations per call");
+
+        for (uint256 i = 0; i < delegations.length; i++) {
+            (address sessionKey, uint48 validUntil, uint256 maxPerTx, uint256 dailyLimit) =
+                abi.decode(delegations[i], (address, uint48, uint256, uint256));
+
+            // Verify the delegation parameters match the on-chain session key
+            SessionKey storage sk = sessionKeys[msg.sender][sessionKey];
+            require(sk.active, "Session key inactive");
+            require(sk.validUntil == validUntil, "validUntil mismatch");
+            require(sk.maxPerTx == maxPerTx, "maxPerTx mismatch");
+            require(sk.dailyLimit == dailyLimit, "dailyLimit mismatch");
+
+            (address target, uint256 value, bytes memory data, address token) =
+                abi.decode(actions[i], (address, uint256, bytes, address));
+
+            bool approved = validateTransaction(msg.sender, sessionKey, target, value, token);
+            require(approved, "Policy validation failed");
+
+            (bool success, ) = target.call{value: value}(data);
+            require(success, "Delegation execution failed");
+
+            emit Executed(msg.sender, target, value, data, success);
+        }
+    }
+
+    // ============ ERC-165 Introspection ============
+
+    /// @notice ERC-165 interface detection
+    /// @param interfaceId The interface identifier to check
+    /// @return True if the contract implements the requested interface
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == type(IERC7821).interfaceId
+            || interfaceId == type(IERC7710Delegator).interfaceId
+            || interfaceId == 0x01ffc9a7; // ERC-165
     }
 
     // ============ View Functions ============
