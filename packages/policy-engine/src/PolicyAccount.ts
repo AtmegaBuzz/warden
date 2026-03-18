@@ -1,7 +1,7 @@
 import { PolicyEngine } from './PolicyEngine.js';
 import { AuditLogger } from './AuditLogger.js';
 import { EIP7702Manager } from './EIP7702Manager.js';
-import type { AgentPolicy, PolicyDecision, PolicyWalletConfig } from './types.js';
+import type { AgentPolicy, PolicyDecision, PolicyWalletConfig, SpendingTracker } from './types.js';
 
 export class PolicyError extends Error {
   public decision: PolicyDecision;
