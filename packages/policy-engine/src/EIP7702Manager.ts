@@ -18,23 +18,63 @@ const SUPPORTED_CHAINS: Record<number, Chain> = {
 };
 
 const POLICY_DELEGATE_ABI = parseAbi([
+  // Initialization
   'function initializePolicy(address recovery, uint256 recoveryDelay) external',
+
+  // Session Key Management
   'function createSessionKey(address eoa, address key, uint256 maxPerTx, uint256 dailyLimit, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds) external',
   'function revokeSessionKey(address eoa, address key) external',
+
+  // Function Selector Permissions
+  'function setAllowedSelector(address eoa, address sessionKey, address target, bytes4 selector, bool allowed) external',
+  'function setAllowedSelectorsBatch(address eoa, address sessionKey, address target, bytes4[] selectors, bool allowed) external',
+
+  // ERC-8004 Identity
+  'function setIdentityRegistry(address registry) external',
+  'function setMinReputation(address eoa, uint256 score) external',
+
+  // Transaction Validation
   'function validateTransaction(address eoa, address sessionKey, address to, uint256 value, address token) public returns (bool)',
+  'function validateTransactionFull(address eoa, address sessionKey, address to, uint256 value, address token, bytes data) public returns (bool)',
+
+  // Execution (with nonce)
+  'function execute(address sessionKey, address to, uint256 value, bytes data, address token, uint256 nonce) external',
+  'function executeBatch(address sessionKey, address[] targets, uint256[] values, bytes[] datas, address[] tokens, uint256 nonce) external',
+
+  // Emergency
   'function freeze(address eoa) external',
   'function unfreeze(address eoa) external',
-  'function execute(address sessionKey, address to, uint256 value, bytes data, address token) external',
-  'function executeBatch(address sessionKey, address[] targets, uint256[] values, bytes[] datas, address[] tokens) external',
-  'function getSessionKey(address eoa, address key) external view returns (bool active, uint256 maxPerTx, uint256 dailyLimit, uint256 spent, uint256 windowStart, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount)',
-  'function getPolicy(address eoa) external view returns (bool initialized, bool frozen, address owner, address recovery, uint256 recoveryDelay, uint256 recoveryInitiated, address pendingOwner)',
+
+  // Recovery
+  'function initiateRecovery(address eoa, address newOwner) external',
+  'function executeRecovery(address eoa) external',
+  'function cancelRecovery(address eoa) external',
+
+  // Allowlists
+  'function setTokenAllowed(address eoa, address token, bool allowed) external',
+  'function setRecipientAllowed(address eoa, address recipient, bool allowed) external',
+  'function setRecipientAllowlistEnabled(address eoa, bool enabled) external',
+
+  // View Functions
+  'function getSessionKey(address eoa, address key) external view returns (bool active, uint256 maxPerTx, uint256 dailyLimit, uint256 spent, uint256 windowStart, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount, bool restrictFunctions)',
+  'function getPolicy(address eoa) external view returns (bool initialized, bool frozen, address owner, address recovery, uint256 recoveryDelay, uint256 recoveryInitiated, address pendingOwner, uint256 minReputation)',
   'function getRemainingDailyBudget(address eoa, address key) external view returns (uint256)',
   'function isSessionKeyValid(address eoa, address key) external view returns (bool)',
   'function getSessionKeyList(address eoa) external view returns (address[])',
   'function getActiveSessionKeyCount(address eoa) external view returns (uint256)',
+  'function getSessionNonce(address eoa, address sessionKey) external view returns (uint256)',
+  'function getVersion() external pure returns (string)',
+
+  // Events
   'event TransactionValidated(address indexed eoa, address indexed sessionKey, address indexed to, uint256 value, bool approved, string reason)',
   'event PolicyFrozen(address indexed eoa, address indexed by)',
+  'event PolicyUnfrozen(address indexed eoa, address indexed by)',
   'event Executed(address indexed eoa, address indexed to, uint256 value, bytes data, bool success)',
+  'event SessionKeyCreated(address indexed eoa, address indexed sessionKey, uint256 maxPerTx, uint256 dailyLimit, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds)',
+  'event SessionKeyRevoked(address indexed eoa, address indexed sessionKey)',
+  'event TokenAllowlistUpdated(address indexed eoa, address indexed token, bool allowed)',
+  'event RecipientAllowlistUpdated(address indexed eoa, address indexed recipient, bool allowed)',
+  'event SessionKeyPermissionUpdated(address indexed eoa, address indexed sessionKey, address indexed target, bytes4 selector, bool allowed)',
 ]);
 
 export interface EIP7702Config {
@@ -209,10 +249,13 @@ export class EIP7702Manager {
     data: Hex;
     token: Address;
   }): Promise<Hex> {
+    // Auto-fetch nonce
+    const nonce = await this.getSessionNonce(params.sessionKey);
+
     const calldata = encodeFunctionData({
       abi: POLICY_DELEGATE_ABI,
       functionName: 'execute',
-      args: [params.sessionKey, params.to, params.value, params.data, params.token],
+      args: [params.sessionKey, params.to, params.value, params.data, params.token, nonce],
     });
 
     const hash = await this.walletClient.sendTransaction({
@@ -224,8 +267,88 @@ export class EIP7702Manager {
     });
 
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
-    console.log(`[Execute] Via policy. Block: ${receipt.blockNumber}`);
+    console.log(`[Execute] Via policy. Block: ${receipt.blockNumber}, Nonce: ${nonce}`);
     return hash;
+  }
+
+  async setFunctionPermission(params: {
+    sessionKey: Address;
+    target: Address;
+    selector: Hex;
+    allowed: boolean;
+  }): Promise<Hex> {
+    const data = encodeFunctionData({
+      abi: POLICY_DELEGATE_ABI,
+      functionName: 'setAllowedSelector',
+      args: [this.account.address, params.sessionKey, params.target, params.selector, params.allowed],
+    });
+
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      chain: this.chain,
+      to: this.account.address,
+      data,
+    });
+
+    await this.publicClient.waitForTransactionReceipt({ hash });
+    console.log(`[Permission] ${params.allowed ? 'Allowed' : 'Revoked'} selector ${params.selector} on ${params.target} for ${params.sessionKey}`);
+    return hash;
+  }
+
+  async setTokenAllowed(token: Address, allowed: boolean): Promise<Hex> {
+    const data = encodeFunctionData({
+      abi: POLICY_DELEGATE_ABI,
+      functionName: 'setTokenAllowed',
+      args: [this.account.address, token, allowed],
+    });
+
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      chain: this.chain,
+      to: this.account.address,
+      data,
+    });
+
+    await this.publicClient.waitForTransactionReceipt({ hash });
+    console.log(`[Allowlist] Token ${token} ${allowed ? 'allowed' : 'removed'}`);
+    return hash;
+  }
+
+  async setRecipientAllowed(recipient: Address, allowed: boolean): Promise<Hex> {
+    const data = encodeFunctionData({
+      abi: POLICY_DELEGATE_ABI,
+      functionName: 'setRecipientAllowed',
+      args: [this.account.address, recipient, allowed],
+    });
+
+    const hash = await this.walletClient.sendTransaction({
+      account: this.account,
+      chain: this.chain,
+      to: this.account.address,
+      data,
+    });
+
+    await this.publicClient.waitForTransactionReceipt({ hash });
+    console.log(`[Allowlist] Recipient ${recipient} ${allowed ? 'allowed' : 'removed'}`);
+    return hash;
+  }
+
+  async getSessionNonce(sessionKey: Address): Promise<bigint> {
+    return await this.publicClient.readContract({
+      address: this.account.address,
+      abi: POLICY_DELEGATE_ABI,
+      functionName: 'getSessionNonce',
+      args: [this.account.address, sessionKey],
+    }) as bigint;
+  }
+
+  async getContractVersion(): Promise<string> {
+    return await this.publicClient.readContract({
+      address: this.account.address,
+      abi: POLICY_DELEGATE_ABI,
+      functionName: 'getVersion',
+      args: [],
+    }) as string;
   }
 
   async freeze(): Promise<Hex> {
