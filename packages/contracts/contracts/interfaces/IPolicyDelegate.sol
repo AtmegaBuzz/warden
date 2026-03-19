@@ -45,8 +45,14 @@ interface IPolicyDelegate {
     function cancelRecovery(address eoa) external;
 
     // View Functions
-    function getPolicy(address eoa) external view returns (bool initialized, bool frozen, address owner, address recovery, uint256 recoveryDelay, uint256 recoveryInitiated, address pendingOwner, uint256 minReputation);
-    function getSessionKey(address eoa, address key) external view returns (bool active, uint256 maxPerTx, uint256 dailyLimit, uint256 spent, uint256 windowStart, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount, bool restrictFunctions);
+    function getPolicy(address eoa) external view returns (bool initialized, bool frozen, address owner, address recovery, uint256 recoveryDelay, uint256 recoveryInitiated, address pendingOwner, uint256 minReputation, uint256 lastHeartbeat, uint256 heartbeatInterval);
+    function getSessionKey(address eoa, address key) external view returns (bool active, uint256 maxPerTx, uint256 dailyLimit, uint256 spent, uint256 windowStart, uint48 validAfter, uint48 validUntil, uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount);
+    function getSessionKeyExtended(address eoa, address key) external view returns (uint256 minPerTx, uint256 maxUses, uint256 maxTxPerDay, bool restrictFunctions);
+
+    // Heartbeat
+    function sendHeartbeat(address eoa) external;
+    function setHeartbeatInterval(address eoa, uint256 interval) external;
+    function setSessionKeyLimits(address eoa, address key, uint256 minPerTx, uint256 maxUses, uint256 maxTxPerDay) external;
     function getRemainingDailyBudget(address eoa, address key) external view returns (uint256);
     function isSessionKeyValid(address eoa, address key) external view returns (bool);
     function getSessionKeyList(address eoa) external view returns (address[] memory);
