@@ -21,7 +21,7 @@ describe("PolicyDelegate", function () {
 
   describe("Version", function () {
     it("should return correct version", async function () {
-      expect(await policy.getVersion()).to.equal("Warden-PolicyDelegate-v3");
+      expect(await policy.getVersion()).to.equal("Warden-PolicyDelegate-v4");
     });
   });
 
@@ -80,7 +80,8 @@ describe("PolicyDelegate", function () {
       expect(sk.active).to.be.true;
       expect(sk.maxPerTx).to.equal(100_000000n);
       expect(sk.dailyLimit).to.equal(500_000000n);
-      expect(sk.restrictFunctions).to.be.false;
+      const ext = await policy.getSessionKeyExtended(owner.address, agent.address);
+      expect(ext.restrictFunctions).to.be.false;
     });
 
     it("should emit SessionKeyCreated with all params", async function () {
@@ -376,8 +377,8 @@ describe("PolicyDelegate", function () {
       await policy.connect(owner).setAllowedSelector(
         owner.address, agent.address, DUMMY_TOKEN, TRANSFER_SELECTOR, true
       );
-      const sk = await policy.getSessionKey(owner.address, agent.address);
-      expect(sk.restrictFunctions).to.be.true;
+      const ext = await policy.getSessionKeyExtended(owner.address, agent.address);
+      expect(ext.restrictFunctions).to.be.true;
     });
 
     it("should emit SessionKeyPermissionUpdated event", async function () {
