@@ -8,7 +8,7 @@ import "./interfaces/IERC8004Registry.sol";
 
 contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
 
-    string public constant VERSION = "Warden-PolicyDelegate-v3";
+    string public constant VERSION = "Warden-PolicyDelegate-v4";
 
     // ============ Custom Errors ============
 
@@ -45,12 +45,17 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
     error AgentNotRegistered(address agent);
     error InsufficientReputation(uint256 score, uint256 required);
     error RegistryAlreadySet();
+    error BelowMinPerTx(uint256 amount, uint256 minimum);
+    error MaxUsesExhausted(uint256 txCount, uint256 maxUses);
+    error MaxTxPerDayExhausted(uint256 txCount, uint256 maxTxPerDay);
+    error HeartbeatExpired(uint256 lastHeartbeat, uint256 interval);
 
     // ============ Structs ============
 
     struct SessionKey {
         bool active;
         uint256 maxPerTx;
+        uint256 minPerTx;
         uint256 dailyLimit;
         uint256 spent;
         uint256 windowStart;
@@ -59,6 +64,8 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
         uint256 cooldownSeconds;
         uint256 lastTxTimestamp;
         uint256 txCount;
+        uint256 maxUses;
+        uint256 maxTxPerDay;
         bool restrictFunctions;
     }
 
@@ -71,6 +78,8 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
         uint256 recoveryInitiated;
         address pendingOwner;
         uint256 minReputation;
+        uint256 lastHeartbeat;
+        uint256 heartbeatInterval;
     }
 
     // ============ State ============
@@ -110,6 +119,8 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
     event SessionKeyPermissionUpdated(address indexed eoa, address indexed sessionKey, address indexed target, bytes4 selector, bool allowed);
     event MinReputationUpdated(address indexed eoa, uint256 score);
     event IdentityRegistrySet(address indexed registry);
+    event HeartbeatSent(address indexed eoa, uint256 timestamp);
+    event HeartbeatIntervalSet(address indexed eoa, uint256 interval);
 
     // ============ Modifiers ============
 
@@ -146,7 +157,9 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
             recoveryDelay: recoveryDelay,
             recoveryInitiated: 0,
             pendingOwner: address(0),
-            minReputation: 0
+            minReputation: 0,
+            lastHeartbeat: block.timestamp,
+            heartbeatInterval: 0
         });
 
         emit PolicyInitialized(msg.sender, msg.sender);
@@ -163,6 +176,33 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
     function setMinReputation(address eoa, uint256 score) external onlyOwner(eoa) {
         policies[eoa].minReputation = score;
         emit MinReputationUpdated(eoa, score);
+    }
+
+    // ============ Heartbeat (Dead Man's Switch) ============
+
+    function sendHeartbeat(address eoa) external onlyOwner(eoa) {
+        policies[eoa].lastHeartbeat = block.timestamp;
+        emit HeartbeatSent(eoa, block.timestamp);
+    }
+
+    function setHeartbeatInterval(address eoa, uint256 interval) external onlyOwner(eoa) {
+        policies[eoa].heartbeatInterval = interval;
+        policies[eoa].lastHeartbeat = block.timestamp;
+        emit HeartbeatIntervalSet(eoa, interval);
+    }
+
+    // ============ Session Key Configuration ============
+
+    function setSessionKeyLimits(
+        address eoa,
+        address key,
+        uint256 minPerTx,
+        uint256 maxUses,
+        uint256 maxTxPerDay
+    ) external onlyOwner(eoa) {
+        sessionKeys[eoa][key].minPerTx = minPerTx;
+        sessionKeys[eoa][key].maxUses = maxUses;
+        sessionKeys[eoa][key].maxTxPerDay = maxTxPerDay;
     }
 
     // ============ Session Key Management ============
@@ -193,6 +233,7 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
         sessionKeys[eoa][key] = SessionKey({
             active: true,
             maxPerTx: maxPerTx,
+            minPerTx: 0,
             dailyLimit: dailyLimit,
             spent: 0,
             windowStart: block.timestamp,
@@ -201,6 +242,8 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
             cooldownSeconds: cooldownSeconds,
             lastTxTimestamp: 0,
             txCount: 0,
+            maxUses: 0,
+            maxTxPerDay: 0,
             restrictFunctions: false
         });
 
@@ -315,6 +358,15 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
         address token,
         bytes memory data
     ) internal returns (bool) {
+        // Heartbeat check (dead man's switch)
+        AgentPolicy storage pol = policies[eoa];
+        if (pol.heartbeatInterval > 0) {
+            if (block.timestamp > pol.lastHeartbeat + pol.heartbeatInterval) {
+                emit TransactionValidated(eoa, sessionKey, to, value, false, "Heartbeat expired");
+                return false;
+            }
+        }
+
         SessionKey storage sk = sessionKeys[eoa][sessionKey];
 
         if (!sk.active) {
@@ -327,11 +379,36 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
             return false;
         }
 
+        // Max uses check
+        if (sk.maxUses > 0 && sk.txCount >= sk.maxUses) {
+            emit TransactionValidated(eoa, sessionKey, to, value, false, "Max uses exhausted");
+            return false;
+        }
+
+        // Max tx per day check
+        if (sk.maxTxPerDay > 0) {
+            // Reset tx count if we're in a new day window
+            uint256 dailyTxCount = sk.txCount;
+            if (block.timestamp > sk.windowStart + 24 hours) {
+                dailyTxCount = 0;
+            }
+            if (dailyTxCount >= sk.maxTxPerDay) {
+                emit TransactionValidated(eoa, sessionKey, to, value, false, "Max daily transactions reached");
+                return false;
+            }
+        }
+
         if (sk.cooldownSeconds > 0 && sk.lastTxTimestamp > 0) {
             if (block.timestamp < sk.lastTxTimestamp + sk.cooldownSeconds) {
                 emit TransactionValidated(eoa, sessionKey, to, value, false, "Cooldown period active");
                 return false;
             }
+        }
+
+        // Min per tx check (anti-dust)
+        if (sk.minPerTx > 0 && value > 0 && value < sk.minPerTx) {
+            emit TransactionValidated(eoa, sessionKey, to, value, false, "Below minimum per transaction");
+            return false;
         }
 
         if (value > sk.maxPerTx) {
@@ -483,23 +560,30 @@ contract PolicyDelegate is IPolicyDelegate, ReentrancyGuard {
     function getSessionKey(address eoa, address key) external view returns (
         bool active, uint256 maxPerTx, uint256 dailyLimit, uint256 spent,
         uint256 windowStart, uint48 validAfter, uint48 validUntil,
-        uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount,
-        bool restrictFunctions
+        uint256 cooldownSeconds, uint256 lastTxTimestamp, uint256 txCount
     ) {
         SessionKey storage sk = sessionKeys[eoa][key];
-        return (sk.active, sk.maxPerTx, sk.dailyLimit, sk.spent, sk.windowStart,
-                sk.validAfter, sk.validUntil, sk.cooldownSeconds, sk.lastTxTimestamp,
-                sk.txCount, sk.restrictFunctions);
+        return (sk.active, sk.maxPerTx, sk.dailyLimit, sk.spent,
+                sk.windowStart, sk.validAfter, sk.validUntil, sk.cooldownSeconds,
+                sk.lastTxTimestamp, sk.txCount);
+    }
+
+    function getSessionKeyExtended(address eoa, address key) external view returns (
+        uint256 minPerTx, uint256 maxUses, uint256 maxTxPerDay, bool restrictFunctions
+    ) {
+        SessionKey storage sk = sessionKeys[eoa][key];
+        return (sk.minPerTx, sk.maxUses, sk.maxTxPerDay, sk.restrictFunctions);
     }
 
     function getPolicy(address eoa) external view returns (
         bool initialized, bool frozen, address owner, address recovery,
         uint256 recoveryDelay, uint256 recoveryInitiated, address pendingOwner,
-        uint256 minReputation
+        uint256 minReputation, uint256 lastHeartbeat, uint256 heartbeatInterval
     ) {
         AgentPolicy storage p = policies[eoa];
         return (p.initialized, p.frozen, p.owner, p.recovery, p.recoveryDelay,
-                p.recoveryInitiated, p.pendingOwner, p.minReputation);
+                p.recoveryInitiated, p.pendingOwner, p.minReputation,
+                p.lastHeartbeat, p.heartbeatInterval);
     }
 
     function getRemainingDailyBudget(address eoa, address key) external view returns (uint256) {
