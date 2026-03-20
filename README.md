@@ -30,15 +30,23 @@ AI Agent ──> Warden Policy Engine ──> WDK Wallet ──> Sepolia
 
 ## Features
 
-- **Two-layer defense**: Off-chain TypeScript checks + on-chain Solidity enforcement
-- **Session keys**: Scoped, time-limited permissions per agent
-- **Spending limits**: Per-transaction and rolling 24-hour caps
-- **Anomaly detection**: Velocity checks, recipient diversity, large transaction flags
-- **Risk scoring**: 0-100 score on every transaction
-- **Emergency freeze**: Halt all operations instantly
+- **Two-layer defense**: Off-chain TypeScript (19 rules) + on-chain Solidity enforcement
+- **Session keys**: Scoped, time-limited permissions with function selector controls
+- **Spending limits**: Per-tx, daily, weekly, monthly rolling caps + per-token limits
+- **Anomaly detection**: 8 behavioral checks (burst, escalation, concentration, deviation)
+- **Risk scoring**: Weighted 8-factor model (0-100 per transaction)
+- **Emergency controls**: Freeze, heartbeat dead man's switch, session key max uses
+- **Tiered authorization**: Auto-approve / cooldown / human approval / multi-sig tiers
+- **Velocity ramp-up**: Graduated limits that increase over configurable ramp period
+- **Cross-agent budget pools**: Shared spending limits across multiple agents
+- **Contract risk classification**: Known protocol detection, risk-based value limits
+- **ERC-8004 identity gating**: Reputation-gated session key creation
+- **Nonce-based replay protection**: Anti-replay for delegated execution
+- **7 pre-built policy templates**: Conservative, moderate, aggressive, DeFi, tiered
 - **MCP server**: 11 callable tools for any AI agent framework
 - **Real-time dashboard**: Monitor agents, view audit logs, control policies
 - **EIP-7702 delegation**: Agents keep their EOA address, delegation is reversible
+- **WDK integration**: PolicyWalletManager, middleware, Indexer API, multi-chain configs
 
 ## Tech Stack
 
@@ -62,8 +70,11 @@ npm install
 # Run the multi-agent demo (standalone, no env vars needed)
 npx tsx demo/multi-agent-demo.ts
 
-# Run contract tests (24 passing)
+# Run contract tests (66 passing)
 cd packages/contracts && npx hardhat test
+
+# Run policy engine tests (72 passing)
+cd packages/policy-engine && npx vitest run
 
 # Start the dashboard
 cd packages/api-server && npm run dev &
@@ -119,12 +130,16 @@ warden/
 
 ## Why Warden?
 
-- Only project with **real EIP-7702 delegation** — not just documentation, working on-chain
-- **Two-layer defense**: TypeScript speed + Solidity tamper-proof guarantees
+- **Real EIP-7702 delegation** — working on-chain, not just documentation
+- **Two-layer defense**: 19-rule TypeScript engine + Solidity enforcement
+- **138 tests** — 66 Solidity (Hardhat) + 72 TypeScript (vitest)
+- **8-factor risk scoring** with weighted behavioral analysis
+- **Dead man's switch** — automatic freeze if owner goes offline
 - Working **MCP server** with 11 tools for any AI agent framework
+- **ERC-8004 identity** — reputation-gated session keys
 - Uses **real Sepolia USDT** — no mock tokens
-- **Reversible delegation** — agents keep their original address
-- Production-ready **risk scoring** and **anomaly detection**
+- **Reversible delegation** — agents keep their original EOA address
+- **7 policy templates** + cross-agent budget pools
 
 ## License
 
