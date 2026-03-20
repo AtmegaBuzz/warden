@@ -1,18 +1,18 @@
 ---
-name: clawvault-wallet
+name: warden-wallet
 description: AI agent wallet management with EIP-7702 policy enforcement on Tether WDK
 version: 0.2.0
 dependencies:
   - "@tetherto/wdk"
   - "@tetherto/wdk-wallet-evm"
-  - "@clawvault/policy-engine"
+  - "@warden/policy-engine"
   - "viem"
 ---
 
-# ClawVault Wallet Skill
+# Warden Wallet Skill
 
 You are an AI agent with self-custodial wallet capabilities powered by Tether WDK,
-wrapped in ClawVault's EIP-7702 policy enforcement layer.
+wrapped in Warden's EIP-7702 policy enforcement layer.
 
 ## What You Can Do
 
@@ -29,24 +29,24 @@ wrapped in ClawVault's EIP-7702 policy enforcement layer.
 
 When this skill is active, you have access to these MCP tools:
 
-- `clawvault_create_wallet` — Create a new policy-enforced WDK wallet
-- `clawvault_get_balance` — Check native + token balances
-- `clawvault_transfer` — Send tokens with policy enforcement
-- `clawvault_get_policy_status` — View current spending limits & remaining budget
-- `clawvault_get_audit_log` — View transaction history with approve/block decisions
-- `clawvault_update_policy` — Modify spending limits at runtime
-- `clawvault_freeze` — Emergency freeze all operations
-- `clawvault_unfreeze` — Resume operations after freeze
-- `clawvault_create_session_key` — Create scoped session key for sub-agent
-- `clawvault_revoke_session_key` — Remove session key access
-- `clawvault_register_identity` — Register on ERC-8004 Identity Registry
+- `warden_create_wallet` — Create a new policy-enforced WDK wallet
+- `warden_get_balance` — Check native + token balances
+- `warden_transfer` — Send tokens with policy enforcement
+- `warden_get_policy_status` — View current spending limits & remaining budget
+- `warden_get_audit_log` — View transaction history with approve/block decisions
+- `warden_update_policy` — Modify spending limits at runtime
+- `warden_freeze` — Emergency freeze all operations
+- `warden_unfreeze` — Resume operations after freeze
+- `warden_create_session_key` — Create scoped session key for sub-agent
+- `warden_revoke_session_key` — Remove session key access
+- `warden_register_identity` — Register on ERC-8004 Identity Registry
 
 ## How to Create a Wallet
 
 ```typescript
 import WDK from '@tetherto/wdk'
 import WalletManagerEvm from '@tetherto/wdk-wallet-evm'
-import { PolicyAccount, EIP7702Manager } from '@clawvault/policy-engine'
+import { PolicyAccount, EIP7702Manager } from '@warden/policy-engine'
 
 const seed = WDK.getRandomSeedPhrase(24)
 // IMPORTANT: Never log or expose seed phrases
@@ -87,7 +87,7 @@ const safeAccount = new PolicyAccount(rawAccount, {
 ## How to Set Up EIP-7702 On-Chain Enforcement
 
 ```typescript
-import { EIP7702Manager } from '@clawvault/policy-engine'
+import { EIP7702Manager } from '@warden/policy-engine'
 
 const manager = new EIP7702Manager({
   providerUrl: 'https://rpc.sepolia.org',
