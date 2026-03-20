@@ -18,7 +18,7 @@ export function TopBar({ connected }: Props) {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none">
-                ClawVault
+                Warden
               </h1>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
                 The firewall for AI agent wallets
