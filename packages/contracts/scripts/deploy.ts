@@ -32,7 +32,11 @@ async function main() {
   console.log("\nWaiting for block confirmations...");
   await policyDelegate.deploymentTransaction()?.wait(5);
 
-  console.log("\n=== DEPLOYMENT COMPLETE ===");
+  // Verify contract version
+  const version = await policyDelegate.getVersion();
+  console.log(`Contract version: ${version}`);
+
+  console.log("\n=== WARDEN DEPLOYMENT COMPLETE ===");
   console.log("Add these to your .env:");
   console.log(`POLICY_DELEGATE_ADDRESS=${policyAddress}`);
   console.log(`SEPOLIA_USDT_ADDRESS=${SEPOLIA_USDT}`);
