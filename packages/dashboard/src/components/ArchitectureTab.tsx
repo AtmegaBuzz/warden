@@ -13,6 +13,7 @@ const MCP_TOOLS = [
   'clawvault_get_policy_status', 'clawvault_get_audit_log', 'clawvault_update_policy',
   'clawvault_freeze', 'clawvault_unfreeze', 'clawvault_create_session_key',
   'clawvault_revoke_session_key', 'clawvault_register_identity',
+  'clawvault_grant_permissions', 'clawvault_revoke_permissions', 'clawvault_get_permissions',
 ] as const
 
 const POLICY_RULES = [
@@ -24,12 +25,14 @@ const POLICY_RULES = [
 const EIP7702_METHODS = [
   'delegateToPolicy', 'initializePolicy', 'createSessionKey', 'revokeSessionKey',
   'validateOnChain', 'executeViaPolicy', 'freeze', 'unfreeze', 'revokeDelegation',
+  'getTransactionReceipt', 'getActiveSessionKeyCount',
 ] as const
 
 const CONTRACT_FUNCTIONS = [
   'initializePolicy', 'createSessionKey', 'revokeSessionKey',
   'validateTransaction', 'execute', 'executeBatch',
   'freeze', 'unfreeze', 'initiateRecovery', 'executeRecovery',
+  'redeemDelegations', 'supportsInterface',
 ] as const
 
 interface ArchBoxProps {
@@ -128,12 +131,12 @@ function ArchitectureDiagram() {
                 <ArrowRight className="w-5 h-5 text-blue-500" strokeWidth={3} />
               </div>
               <div className="flex-[1.6]">
-                <ArchBox icon={Server} title="ClawVault MCP Server (11 tools)"
+                <ArchBox icon={Server} title="ClawVault MCP Server (14 tools)"
                   bullets={['Model Context Protocol interface', 'Agent management + policy CRUD', 'Transaction simulation + execution']}
                   expandKey="mcp" expanded={expanded} onToggle={setExpanded}
                   bg="bg-white" iconBg="bg-orange-600" iconColor="text-white" borderColor="border-orange-300" titleColor="text-orange-900"
                 />
-                {expanded === 'mcp' && <ExpandedPanel title="All 11 MCP Tools" items={MCP_TOOLS} color="bg-orange-50" />}
+                {expanded === 'mcp' && <ExpandedPanel title="All 14 MCP Tools" items={MCP_TOOLS} color="bg-orange-50" />}
               </div>
               <div className="hidden lg:flex items-center shrink-0">
                 <div className="w-8 h-[3px] bg-blue-400 rounded-full" />
@@ -218,7 +221,7 @@ function ArchitectureDiagram() {
                   expandKey="contract" expanded={expanded} onToggle={setExpanded}
                   bg="bg-white" iconBg="bg-rose-600" iconColor="text-white" borderColor="border-rose-300" titleColor="text-rose-900"
                 />
-                {expanded === 'contract' && <ExpandedPanel title="Contract Functions (29 tests passing)" items={CONTRACT_FUNCTIONS} color="bg-rose-50" />}
+                {expanded === 'contract' && <ExpandedPanel title="Contract Functions (46 tests passing)" items={CONTRACT_FUNCTIONS} color="bg-rose-50" />}
               </div>
             </div>
           </div>
@@ -271,9 +274,9 @@ const TECH_STACK = [
   { icon: Link, title: 'EIP-7702', color: 'bg-orange-600',
     description: 'EOA delegation standard. Same address, smart contract logic, fully reversible. No bundler needed. Keeps WDK compatibility.' },
   { icon: Wrench, title: 'Solidity 0.8.28 + Hardhat', color: 'bg-rose-600',
-    description: 'Prague EVM target for 7702 opcodes. PolicyDelegate contract with 29 tests passing. OpenZeppelin ReentrancyGuard.' },
+    description: 'Prague EVM target for 7702 opcodes. PolicyDelegate contract with 46 tests passing. OpenZeppelin ReentrancyGuard.' },
   { icon: Cpu, title: 'MCP Protocol', color: 'bg-purple-600',
-    description: 'Model Context Protocol for AI agent tool calling. 11 callable tools. Any MCP-compatible agent can use ClawVault.' },
+    description: 'Model Context Protocol for AI agent tool calling. 14 callable tools. Any MCP-compatible agent can use ClawVault.' },
   { icon: Layers, title: 'React + Vite + Tailwind', color: 'bg-blue-600',
     description: 'Interactive simulator + live dashboard. 5-tab SPA with scenario-driven demos. Recharts for data visualization.' },
 ] as const
@@ -303,7 +306,7 @@ const COMPETITOR_FEATURES: { feature: string; clawvault: boolean; l1ad: boolean 
   { feature: 'Risk scoring 0-100', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
   { feature: 'Anomaly detection', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
   { feature: 'ERC-8004 identity', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
-  { feature: 'MCP server (11 tools)', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
+  { feature: 'MCP server (14 tools)', clawvault: true, l1ad: false, policyLayer: false, litProtocol: false, crossmint: false },
   { feature: 'Real testnet transactions', clawvault: true, l1ad: false, policyLayer: null, litProtocol: false, crossmint: false },
   { feature: 'Session keys', clawvault: true, l1ad: false, policyLayer: null, litProtocol: false, crossmint: false },
   { feature: 'Emergency freeze', clawvault: true, l1ad: true, policyLayer: false, litProtocol: false, crossmint: false },

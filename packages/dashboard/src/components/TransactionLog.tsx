@@ -92,7 +92,7 @@ export function TransactionLog({ entries }: { entries: AuditEntry[] }) {
         ))}
         {entries.length === 0 && (
           <div className="text-center text-slate-400 py-8">
-            No transactions yet. Use the Simulator tab to test policy enforcement.
+            No transactions yet. Use the Live Testnet tab to test policy enforcement.
           </div>
         )}
       </div>

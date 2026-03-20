@@ -5,6 +5,17 @@ import {
 } from 'lucide-react'
 import { USDT_DIVISOR } from '../constants'
 
+function relativeTime(timestampMs: number): string {
+  const diffMs = Date.now() - timestampMs
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return `${diffSec}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  return `${Math.floor(diffHr / 24)}d ago`
+}
+
 interface AuditEntry {
   approved: boolean
   reason: string
@@ -76,9 +87,11 @@ export function LiveDashboardTab({
 
   const agentEntries = (agentId: string) => auditLog.filter(e => e.agentId === agentId)
 
+  const todayStart = new Date().setHours(0, 0, 0, 0)
+
   const agentSpending = (agentId: string): number =>
     agentEntries(agentId)
-      .filter(e => e.approved)
+      .filter(e => e.approved && e.timestamp >= todayStart)
       .reduce((sum, e) => sum + Number(e.transactionDetails.value) / USDT_DIVISOR, 0)
 
   const agentApproved = (agentId: string): number =>
@@ -150,6 +163,16 @@ export function LiveDashboardTab({
 
   const heatmap = ruleHeatmap()
 
+  const heatmapMax = (() => {
+    let max = 1
+    for (const ruleMap of heatmap.values()) {
+      for (const count of ruleMap.values()) {
+        if (count > max) max = count
+      }
+    }
+    return max
+  })()
+
   const approvalRate = stats && stats.total > 0
     ? ((stats.approved / stats.total) * 100).toFixed(1)
     : '0'
@@ -215,9 +238,9 @@ export function LiveDashboardTab({
                     {spent.toFixed(1)} / {profile.dailyLimit} USDT
                   </span>
                 </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-700 ${getSpendingColor(spendPct)}`}
+                    className={`h-full rounded-full transition-all duration-700 ease-out ${getSpendingColor(spendPct)}${spendPct >= 80 ? ' animate-pulse' : ''}`}
                     style={{ width: `${spendPct}%` }}
                   />
                 </div>
@@ -243,7 +266,7 @@ export function LiveDashboardTab({
 
               {/* Last Action */}
               <p className="text-xs text-slate-400 mb-3 font-mono">
-                Last: {lastTs ? new Date(lastTs).toLocaleTimeString() : 'No activity'}
+                {lastTs ? `Last action: ${relativeTime(lastTs)}` : 'No activity yet'}
               </p>
 
               {/* Policy Summary */}
@@ -329,7 +352,7 @@ export function LiveDashboardTab({
           </div>
           <div>
             <p className="text-2xl font-bold font-mono text-slate-900 tracking-tight">
-              {totalVolume.toFixed(0)}
+              {totalVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <p className="text-xs text-slate-500 mt-0.5">Volume (USDT)</p>
           </div>
@@ -344,7 +367,7 @@ export function LiveDashboardTab({
             Live Transaction Feed
           </h2>
           <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-            {auditLog.slice(0, 30).map((entry, i) => {
+            {[...auditLog].sort((a, b) => b.timestamp - a.timestamp).slice(0, 30).map((entry, i) => {
               const agentName = AGENT_PROFILES.find(p => p.id === entry.agentId)?.name ?? entry.agentId
               return (
                 <div
@@ -391,7 +414,7 @@ export function LiveDashboardTab({
             })}
             {auditLog.length === 0 && (
               <div className="text-center text-slate-400 py-8 text-sm">
-                No transactions yet. Use the Simulator tab or click Simulate Tx above.
+                No transactions yet. Use the Live Testnet tab or click Simulate Tx above.
               </div>
             )}
           </div>
@@ -424,15 +447,17 @@ export function LiveDashboardTab({
                         <td className="py-2 pr-2 font-mono text-slate-700">{rule}</td>
                         {AGENT_PROFILES.map(p => {
                           const count = ruleMap?.get(p.id) ?? 0
+                          const intensity = count > 0 ? Math.max(0.15, count / heatmapMax) : 0
                           return (
                             <td key={p.id} className="text-center py-2 px-1">
-                              {count > 0 ? (
-                                <span className="text-red-600 font-mono font-bold">
-                                  {Array.from({ length: Math.min(count, 5) }, () => '\u25CF').join('')}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300 font-mono">{'\u25CB'}</span>
-                              )}
+                              <span
+                                className={`inline-flex items-center justify-center w-8 h-6 rounded font-mono text-xs font-bold ${
+                                  count > 0 ? 'text-red-800' : 'text-slate-300'
+                                }`}
+                                style={count > 0 ? { backgroundColor: `rgba(239, 68, 68, ${intensity})` } : undefined}
+                              >
+                                {count > 0 ? count : '\u25CB'}
+                              </span>
                             </td>
                           )
                         })}
@@ -445,18 +470,19 @@ export function LiveDashboardTab({
           </div>
 
           {/* Emergency Controls */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-slate-900 uppercase mb-4 tracking-wider">
+          <div className="bg-white rounded-xl border border-red-200 shadow-sm p-6">
+            <h2 className="text-sm font-semibold text-red-700 uppercase mb-4 tracking-wider flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
               Emergency Controls
             </h2>
 
             <button
               onClick={() => void handleFreezeAll()}
               disabled={actionInProgress === 'all'}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors mb-4"
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-slate-200 disabled:text-slate-400 text-white py-4 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors mb-4 ring-2 ring-red-300 ring-offset-1 shadow-lg shadow-red-100"
             >
-              <Snowflake className="w-4 h-4" />
-              {actionInProgress === 'all' ? 'Freezing...' : 'FREEZE ALL AGENTS'}
+              <Snowflake className="w-5 h-5" />
+              {actionInProgress === 'all' ? 'Freezing All Agents...' : 'FREEZE ALL AGENTS'}
             </button>
 
             <div className="space-y-2">
@@ -534,7 +560,7 @@ export function LiveDashboardTab({
           </div>
         ) : (
           <div className="flex items-center justify-center h-[120px] text-slate-400 text-sm">
-            No chart data yet. Use the Simulator tab to generate transactions.
+            No chart data yet. Use the Live Testnet tab to generate transactions.
           </div>
         )}
       </div>
