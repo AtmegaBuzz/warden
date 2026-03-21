@@ -56,7 +56,7 @@ export function OverviewTab({ stats, auditLog, contractInfo, walletInfo }: Props
     <div className="space-y-8">
       {/* Hero Card */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">ClawVault</h2>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">Warden</h2>
         <p className="text-slate-600 max-w-2xl leading-relaxed">
           The firewall for AI agent wallets. Every transaction is evaluated against spending limits,
           anomaly detection, and risk scoring before it reaches the blockchain.
