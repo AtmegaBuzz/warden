@@ -72,7 +72,7 @@ export function ContractsTab({ contractInfo }: Props) {
       <div>
         <h2 className="text-xl font-bold text-slate-900 mb-1">Deployed Contracts</h2>
         <p className="text-sm text-slate-500">
-          ClawVault smart contracts deployed on Sepolia testnet.
+          Warden smart contracts deployed on Sepolia testnet.
         </p>
       </div>
 
@@ -100,7 +100,7 @@ export function ContractsTab({ contractInfo }: Props) {
               </div>
               <div className="bg-slate-50 rounded-lg p-4">
                 <p className="text-xs text-slate-400 mb-1">Contract Version</p>
-                <p className="text-sm font-mono text-slate-800 font-semibold">{contractInfo.version || 'ClawVault-PolicyDelegate-v2'}</p>
+                <p className="text-sm font-mono text-slate-800 font-semibold">{contractInfo.version || 'Warden-PolicyDelegate-v2'}</p>
               </div>
               <div className="bg-slate-50 rounded-lg p-4">
                 <p className="text-xs text-slate-400 mb-1">Chain ID</p>
