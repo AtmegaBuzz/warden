@@ -12,6 +12,12 @@ export {
   conservativePolicy, moderatePolicy, aggressivePolicy,
   transferOnlyPolicy, defiPolicy, rampUpPolicy, tieredPolicy,
 } from './PolicyTemplates.js';
+export {
+  ERC20_SELECTORS, AAVE_V3_SELECTORS, UNISWAP_V3_SELECTORS,
+  TRANSFER_ONLY, AAVE_SUPPLY_ONLY, AAVE_FULL, UNISWAP_SWAP_ONLY, READ_ONLY,
+  getAllProtocolPolicies,
+  type ProtocolPolicy,
+} from './ProtocolPolicies.js';
 export type {
   AgentPolicy,
   PolicyDecision,
