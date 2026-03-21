@@ -1,5 +1,5 @@
 // demo/multi-agent-demo.ts
-// Standalone ClawVault multi-agent policy demo — no external dependencies
+// Standalone Warden multi-agent policy demo — no external dependencies
 
 // ─── ANSI Colors ───────────────────────────────────────────────────────────────
 
@@ -379,7 +379,7 @@ function printHeader(): void {
   console.log('');
   console.log(`${C.bold}${C.cyan}${'='.repeat(76)}${C.reset}`);
   console.log(`${C.bold}${C.cyan}||${C.reset}${' '.repeat(72)}${C.bold}${C.cyan}||${C.reset}`);
-  console.log(`${C.bold}${C.cyan}||${C.reset}   ${C.bold}ClawVault${C.reset} -- Multi-Agent Policy Enforcement Demo${' '.repeat(20)}${C.bold}${C.cyan}||${C.reset}`);
+  console.log(`${C.bold}${C.cyan}||${C.reset}   ${C.bold}Warden${C.reset} -- Multi-Agent Policy Enforcement Demo${' '.repeat(20)}${C.bold}${C.cyan}||${C.reset}`);
   console.log(`${C.bold}${C.cyan}||${C.reset}   EIP-7702 policy layer for AI agent wallets${' '.repeat(26)}${C.bold}${C.cyan}||${C.reset}`);
   console.log(`${C.bold}${C.cyan}||${C.reset}${' '.repeat(72)}${C.bold}${C.cyan}||${C.reset}`);
   console.log(`${C.bold}${C.cyan}${'='.repeat(76)}${C.reset}`);
