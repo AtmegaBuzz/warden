@@ -8,10 +8,10 @@ import {
 type ExpandedBox = 'mcp' | 'policyEngine' | 'eip7702' | 'contract' | null
 
 const MCP_TOOLS = [
-  'clawvault_create_wallet', 'clawvault_get_balance', 'clawvault_transfer',
-  'clawvault_get_policy_status', 'clawvault_get_audit_log', 'clawvault_update_policy',
-  'clawvault_freeze', 'clawvault_unfreeze', 'clawvault_create_session_key',
-  'clawvault_revoke_session_key', 'clawvault_register_identity',
+  'warden_create_wallet', 'warden_get_balance', 'warden_transfer',
+  'warden_get_policy_status', 'warden_get_audit_log', 'warden_update_policy',
+  'warden_freeze', 'warden_unfreeze', 'warden_create_session_key',
+  'warden_revoke_session_key', 'warden_register_identity',
 ] as const
 
 const POLICY_RULES = [
@@ -127,7 +127,7 @@ function ArchitectureDiagram() {
                 <ArrowRight className="w-5 h-5 text-blue-500" strokeWidth={3} />
               </div>
               <div className="flex-[1.6]">
-                <ArchBox icon={Server} title="ClawVault MCP Server (11 tools)"
+                <ArchBox icon={Server} title="Warden MCP Server (11 tools)"
                   bullets={['Model Context Protocol interface', 'Agent management + policy CRUD', 'Transaction simulation + execution']}
                   expandKey="mcp" expanded={expanded} onToggle={setExpanded}
                   bg="bg-white" iconBg="bg-orange-600" iconColor="text-white" borderColor="border-orange-300" titleColor="text-orange-900"
@@ -272,7 +272,7 @@ const TECH_STACK = [
   { icon: Wrench, title: 'Solidity 0.8.28 + Hardhat', color: 'bg-rose-600',
     description: 'Prague EVM target for 7702 opcodes. PolicyDelegate contract with 29 tests passing. OpenZeppelin ReentrancyGuard.' },
   { icon: Cpu, title: 'MCP Protocol', color: 'bg-purple-600',
-    description: 'Model Context Protocol for AI agent tool calling. 11 callable tools. Any MCP-compatible agent can use ClawVault.' },
+    description: 'Model Context Protocol for AI agent tool calling. 11 callable tools. Any MCP-compatible agent can use Warden.' },
   { icon: Layers, title: 'React + Vite + Tailwind', color: 'bg-blue-600',
     description: 'Interactive simulator + live dashboard. 5-tab SPA with scenario-driven demos. Recharts for data visualization.' },
 ] as const
@@ -311,7 +311,7 @@ export function ArchitectureTab(): React.JSX.Element {
       {/* Section C */}
       <section>
         <h2 className="text-2xl font-bold text-slate-900 mb-1">Two-Layer Defense</h2>
-        <p className="text-sm text-slate-500 mb-4">Why ClawVault enforces policies at both layers — and what happens if one is bypassed.</p>
+        <p className="text-sm text-slate-500 mb-4">Why Warden enforces policies at both layers — and what happens if one is bypassed.</p>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -343,14 +343,14 @@ export function ArchitectureTab(): React.JSX.Element {
       {/* Section D */}
       <section>
         <h2 className="text-2xl font-bold text-slate-900 mb-1">Why EIP-7702 over ERC-4337?</h2>
-        <p className="text-sm text-slate-500 mb-4">Account abstraction comparison — ClawVault chose EIP-7702 for WDK compatibility and reversibility.</p>
+        <p className="text-sm text-slate-500 mb-4">Account abstraction comparison — Warden chose EIP-7702 for WDK compatibility and reversibility.</p>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr>
                 <th className="bg-slate-100 px-5 py-3.5 text-left font-bold text-slate-600 text-xs uppercase tracking-wider w-1/4">&nbsp;</th>
                 <th className="bg-orange-500 px-5 py-3.5 text-left font-bold text-white text-xs uppercase tracking-wider">
-                  EIP-7702 (ClawVault) &#x2713;
+                  EIP-7702 (Warden) &#x2713;
                 </th>
                 <th className="bg-slate-200 px-5 py-3.5 text-left font-bold text-slate-600 text-xs uppercase tracking-wider">ERC-4337</th>
               </tr>
