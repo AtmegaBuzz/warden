@@ -6,7 +6,7 @@ import { LiveDashboardTab } from './components/LiveDashboardTab'
 import { ArchitectureTab } from './components/ArchitectureTab'
 import { EIP7702Tab } from './components/EIP7702Tab'
 import { AuditLogTab } from './components/AuditLogTab'
-import { useClawVault } from './hooks/useClawVault'
+import { useWarden } from './hooks/useClawVault'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Simulator')
@@ -16,7 +16,7 @@ export default function App() {
     walletInfo, contractInfo,
     simulateTransaction,
     freezeAgent, unfreezeAgent,
-  } = useClawVault(null)
+  } = useWarden(null)
 
   return (
     <div className="min-h-screen bg-slate-50">
