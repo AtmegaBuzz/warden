@@ -1480,7 +1480,7 @@ export function SimulatorTab({ onSimulate, auditLog: _auditLog }: Props) {
           <div>
             <h2 className="text-2xl font-bold text-slate-900 mb-1">Policy Enforcement Simulator</h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              See how ClawVault protects AI agent wallets in real-world scenarios.
+              See how Warden protects AI agent wallets in real-world scenarios.
               Every transaction is evaluated against{' '}
               <span className="font-mono text-orange-600 font-semibold">10 policy rules</span>{' '}
               before reaching the blockchain.
