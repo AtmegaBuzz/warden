@@ -119,7 +119,7 @@ function initializeClients(privateKey: Hex): void {
 
 function requireWallet(): { publicClient: PublicClient; walletClient: WalletClient; address: Address } {
   if (!publicClient || !walletClient || !walletAddress || !storedPrivateKey) {
-    throw new Error('No wallet created. Call clawvault_create_wallet first.');
+    throw new Error('No wallet created. Call warden_create_wallet first.');
   }
   return { publicClient, walletClient, address: walletAddress };
 }
@@ -129,7 +129,7 @@ function requireWallet(): { publicClient: PublicClient; walletClient: WalletClie
 // ============================================================
 
 const server = new McpServer({
-  name: 'clawvault-wallet',
+  name: 'warden-wallet',
   version: '0.3.0',
 });
 
@@ -138,7 +138,7 @@ const server = new McpServer({
 // ============================================================
 
 server.tool(
-  'clawvault_create_wallet',
+  'warden_create_wallet',
   'Create a new policy-enforced wallet for the AI agent. Generates a random Ethereum keypair, initializes viem clients for Sepolia, and sets up policy enforcement with spending limits, anomaly detection, and audit logging.',
   {
     agentId: z.string().describe('Unique identifier for this agent'),
@@ -200,7 +200,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_get_balance',
+  'warden_get_balance',
   'Check the wallet balance on Sepolia. Returns native ETH balance, or ERC-20 token balance if a token address is provided.',
   {
     tokenAddress: z.string().optional().describe('ERC-20 token address. Omit for native ETH.'),
@@ -282,7 +282,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_transfer',
+  'warden_transfer',
   'Send ERC-20 tokens with policy enforcement. Evaluates the transfer against all 10 policy rules including spending limits, cooldowns, and anomaly detection. Submits the transaction on-chain if approved.',
   {
     recipient: z.string().describe('Recipient wallet address (0x...)'),
@@ -292,7 +292,7 @@ server.tool(
   async ({ recipient, amount, tokenAddress }) => {
     if (!policyEngine || !auditLogger) {
       return {
-        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call clawvault_create_wallet first.' }) }],
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
         isError: true,
       };
     }
@@ -414,13 +414,13 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_get_policy_status',
+  'warden_get_policy_status',
   'View current spending limits, remaining budget, window reset time, and audit statistics including approved/blocked counts and top block reasons.',
   {},
   async () => {
     if (!policyEngine || !auditLogger) {
       return {
-        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call clawvault_create_wallet first.' }) }],
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
         isError: true,
       };
     }
@@ -456,7 +456,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_get_audit_log',
+  'warden_get_audit_log',
   'View recent transaction history with approve/block decisions, risk scores, and triggered rules. Supports filtering by approval status.',
   {
     limit: z.number().default(10).describe('Number of entries to return'),
@@ -465,7 +465,7 @@ server.tool(
   async ({ limit, approvedOnly }) => {
     if (!auditLogger) {
       return {
-        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call clawvault_create_wallet first.' }) }],
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
         isError: true,
       };
     }
@@ -495,7 +495,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_update_policy',
+  'warden_update_policy',
   'Modify policy rules at runtime. Can update per-transaction limits, daily limits, and cooldown periods without recreating the wallet.',
   {
     maxPerTx: z.number().optional().describe('New max per transaction in USDT'),
@@ -505,7 +505,7 @@ server.tool(
   async ({ maxPerTx, dailyLimit, cooldownSeconds }) => {
     if (!policyEngine) {
       return {
-        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call clawvault_create_wallet first.' }) }],
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
         isError: true,
       };
     }
@@ -542,7 +542,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_freeze',
+  'warden_freeze',
   'EMERGENCY: Freeze all wallet operations immediately. No transfers will be allowed until unfrozen.',
   {},
   async () => {
@@ -566,7 +566,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_unfreeze',
+  'warden_unfreeze',
   'Resume wallet operations after an emergency freeze.',
   {},
   async () => {
@@ -590,7 +590,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_create_session_key',
+  'warden_create_session_key',
   'Create a scoped session key for a sub-agent with its own spending limits and validity period. Requires POLICY_DELEGATE_ADDRESS env var for on-chain EIP-7702 session key creation.',
   {
     agentAddress: z.string().describe('Sub-agent wallet address to grant session key to'),
@@ -711,7 +711,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_revoke_session_key',
+  'warden_revoke_session_key',
   'Revoke a previously created session key, immediately disabling its access. If POLICY_DELEGATE_ADDRESS is set, also revokes on-chain.',
   {
     sessionKeyAddress: z.string().describe('Address of the session key to revoke'),
@@ -812,7 +812,7 @@ server.tool(
 // ============================================================
 
 server.tool(
-  'clawvault_register_identity',
+  'warden_register_identity',
   'Register the agent on the ERC-8004 Agent Identity Registry. Requires ERC8004_IDENTITY_REGISTRY env var for the on-chain registry contract address.',
   {
     agentName: z.string().describe('Human-readable name for this agent'),
@@ -904,11 +904,11 @@ server.tool(
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('[ClawVault MCP] Server running on stdio');
-  console.error(`[ClawVault MCP] RPC: ${PROVIDER_URL}`);
-  console.error(`[ClawVault MCP] PolicyDelegate: ${POLICY_DELEGATE_ADDRESS ?? 'not configured'}`);
-  console.error(`[ClawVault MCP] ERC-8004 Registry: ${ERC8004_IDENTITY_REGISTRY ?? 'not configured'}`);
-  console.error(`[ClawVault MCP] Default USDT: ${SEPOLIA_USDT}`);
+  console.error('[Warden MCP] Server running on stdio');
+  console.error(`[Warden MCP] RPC: ${PROVIDER_URL}`);
+  console.error(`[Warden MCP] PolicyDelegate: ${POLICY_DELEGATE_ADDRESS ?? 'not configured'}`);
+  console.error(`[Warden MCP] ERC-8004 Registry: ${ERC8004_IDENTITY_REGISTRY ?? 'not configured'}`);
+  console.error(`[Warden MCP] Default USDT: ${SEPOLIA_USDT}`);
 }
 
 main().catch(console.error);
