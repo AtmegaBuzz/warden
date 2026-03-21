@@ -170,7 +170,7 @@ export function EIP7702Tab(): React.JSX.Element {
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">Version</p>
-              <p className="text-sm font-mono text-slate-700">ClawVault-PolicyDelegate-v2</p>
+              <p className="text-sm font-mono text-slate-700">Warden-PolicyDelegate-v2</p>
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">Etherscan</p>
