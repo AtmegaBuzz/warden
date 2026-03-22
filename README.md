@@ -8,70 +8,21 @@
 
 AI agents with wallets need guardrails. Warden is a two-layer policy enforcement system that wraps any AI agent wallet with configurable spending limits, anomaly detection, and risk scoring — enforced both off-chain in TypeScript (for speed) and on-chain in Solidity (for tamper-proof guarantees). Using EIP-7702, agents keep their original EOA address while gaining smart-contract-level policy enforcement that the agent owner can configure and revoke at any time.
 
-## Architecture
-
-```
-AI Agent ──> Warden Policy Engine ──> WDK Wallet ──> Sepolia
-                    |                        |
-             TypeScript layer          EIP-7702 Delegation
-           (speed + flexibility)    (agent keeps EOA address)
-                    |
-          PolicyDelegate.sol
-         (on-chain enforcement)
-                    |
-            MCP Server (11 tools)
-                    |
-           React Dashboard
-```
-
-**Two-layer defense:**
-- **Off-chain (TypeScript)**: Sub-millisecond policy evaluation, risk scoring, anomaly detection, audit logging
-- **On-chain (Solidity)**: Tamper-proof spending limits and recipient allowlists that the agent cannot bypass
-
-## Features
-
-- **Two-layer defense**: Off-chain TypeScript (19 rules) + on-chain Solidity enforcement
-- **Session keys**: Scoped, time-limited permissions with function selector controls
-- **Spending limits**: Per-tx, daily, weekly, monthly rolling caps + per-token limits
-- **Anomaly detection**: 8 behavioral checks (burst, escalation, concentration, deviation)
-- **Risk scoring**: Weighted 8-factor model (0-100 per transaction)
-- **Emergency controls**: Freeze, heartbeat dead man's switch, session key max uses
-- **Tiered authorization**: Auto-approve / cooldown / human approval / multi-sig tiers
-- **Velocity ramp-up**: Graduated limits that increase over configurable ramp period
-- **Cross-agent budget pools**: Shared spending limits across multiple agents
-- **Contract risk classification**: Known protocol detection, risk-based value limits
-- **ERC-8004 identity gating**: Reputation-gated session key creation
-- **Nonce-based replay protection**: Anti-replay for delegated execution
-- **7 pre-built policy templates**: Conservative, moderate, aggressive, DeFi, tiered
-- **MCP server**: 11 callable tools for any AI agent framework
-- **Real-time dashboard**: Monitor agents, view audit logs, control policies
-- **EIP-7702 delegation**: Agents keep their EOA address, delegation is reversible
-- **WDK integration**: PolicyWalletManager, middleware, Indexer API, multi-chain configs
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Smart Contracts | Solidity 0.8.28, Hardhat, OpenZeppelin |
-| Policy Engine | TypeScript, viem (EIP-7702) |
-| MCP Server | @modelcontextprotocol/sdk, zod |
-| Dashboard | React, Vite, Tailwind CSS, Recharts |
-| API Server | Express, TypeScript |
-| Network | Ethereum Sepolia Testnet |
-| USDT | Real Sepolia USDT (`0x7169D38820dfd117C3FA1f22a697dBA58d90BA06`) |
-
 ## npm Packages
 
-| Package | Install |
-|---------|---------|
-| [`@aspect-warden/policy-engine`](https://www.npmjs.com/package/@aspect-warden/policy-engine) | `npm install @aspect-warden/policy-engine` |
-| [`@aspect-warden/mcp-server`](https://www.npmjs.com/package/@aspect-warden/mcp-server) | `npm install @aspect-warden/mcp-server` |
+[![npm](https://img.shields.io/npm/v/@aspect-warden/policy-engine?label=%40aspect-warden%2Fpolicy-engine)](https://www.npmjs.com/package/@aspect-warden/policy-engine)
+[![npm](https://img.shields.io/npm/v/@aspect-warden/mcp-server?label=%40aspect-warden%2Fmcp-server)](https://www.npmjs.com/package/@aspect-warden/mcp-server)
+
+| Package | Description | Install |
+|---------|-------------|---------|
+| [`@aspect-warden/policy-engine`](https://www.npmjs.com/package/@aspect-warden/policy-engine) | 19-rule policy engine with anomaly detection and risk scoring | `npm install @aspect-warden/policy-engine` |
+| [`@aspect-warden/mcp-server`](https://www.npmjs.com/package/@aspect-warden/mcp-server) | MCP server with 14 wallet tools for AI agents | `npm install @aspect-warden/mcp-server` |
 
 ## Quick Start
 
-### Use with Claude Desktop / OpenClaw
+### 1. Use with Claude Desktop
 
-Add to your `claude_desktop_config.json`:
+Add to your `claude_desktop_config.json` (no cloning required):
 
 ```json
 {
@@ -87,53 +38,190 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop and ask: *"Create a conservative wallet with max $50/day spending on USDT."*
+Restart Claude Desktop and ask:
 
-For OpenClaw, install the skill: `npx skills add tetherto/wdk-agent-skills`
+> "Create a conservative wallet with max $50/day spending on USDT."
 
-### Use as a Library
+The agent will call `warden_create_wallet`, `warden_transfer`, `warden_get_policy_status` and other tools automatically via MCP.
+
+### 2. Use with OpenClaw
+
+```bash
+npx skills add tetherto/wdk-agent-skills
+```
+
+Then configure the MCP server in OpenClaw's settings with the same config as above.
+
+### 3. Use as a TypeScript Library
 
 ```bash
 npm install @aspect-warden/policy-engine
 ```
 
 ```typescript
-import { PolicyEngine, AuditLogger, conservativePolicy } from '@aspect-warden/policy-engine';
+import {
+  PolicyEngine,
+  AuditLogger,
+  conservativePolicy,
+} from '@aspect-warden/policy-engine';
 
+// Use a pre-built template or create a custom policy
 const engine = new PolicyEngine(conservativePolicy('my-agent'));
 const logger = new AuditLogger();
 
+// Every transaction is evaluated against 19 rules
 const decision = engine.evaluate({
   to: '0xRecipient',
   value: 50_000000n,    // 50 USDT (6 decimals)
   token: '0xUSDT',
   chain: 'sepolia',
 });
-// { approved: true, riskScore: 25, reason: 'All policy checks passed', ... }
+
+console.log(decision.approved);   // true
+console.log(decision.riskScore);  // 0-100
+console.log(decision.reason);     // 'All policy checks passed'
 
 logger.log(decision);
 ```
 
-### Run from Source
+#### Policy Templates
+
+```typescript
+import {
+  conservativePolicy,  // max 10 USDT/tx, 50 USDT/day, anomaly detection ON
+  moderatePolicy,      // max 100 USDT/tx, 500 USDT/day
+  aggressivePolicy,    // max 1000 USDT/tx, 5000 USDT/day
+  transferOnlyPolicy,  // transfers only, no contract interactions
+  defiPolicy,          // DeFi-aware with Aave/Uniswap rules
+  rampUpPolicy,        // limits that increase over time
+  tieredPolicy,        // auto-approve / cooldown / manual approval by amount
+} from '@aspect-warden/policy-engine';
+```
+
+#### Custom Policy
+
+```typescript
+import type { AgentPolicy } from '@aspect-warden/policy-engine';
+
+const policy: AgentPolicy = {
+  agentId: 'trading-bot',
+  maxPerTx: 50_000000n,           // 50 USDT max per transaction
+  dailyLimit: 200_000000n,        // 200 USDT daily cap
+  weeklyLimit: 1000_000000n,      // 1,000 USDT weekly cap
+  monthlyLimit: 3000_000000n,     // 3,000 USDT monthly cap
+  requireApprovalAbove: 40_000000n,
+  allowedTokens: ['0x7169D38820dfd117C3FA1f22a697dBA58d90BA06'], // Sepolia USDT
+  blockedTokens: [],
+  allowedRecipients: [],          // empty = allow all
+  blockedRecipients: [],
+  allowedChains: ['sepolia'],
+  cooldownMs: 30_000,             // 30s between transactions
+  maxTxPerDay: 50,
+  anomalyDetection: {
+    maxTxPerHour: 10,
+    maxRecipientsPerHour: 5,
+    largeTransactionPct: 50,
+    burstThreshold: 4,
+    burstWindowMs: 60_000,
+  },
+};
+```
+
+## Architecture
+
+```
+AI Agent (Claude Desktop / OpenClaw / any MCP client)
+    ↓ MCP Protocol (stdio)
+@aspect-warden/mcp-server          ← npm install @aspect-warden/mcp-server
+    ↓ validates every transaction
+@aspect-warden/policy-engine       ← npm install @aspect-warden/policy-engine
+    ↓ on-chain enforcement
+PolicyDelegate.sol (EIP-7702 delegation on Sepolia)
+    ↓ monitoring
+Dashboard + API Server (audit logs, risk scores, freeze controls)
+```
+
+**Two-layer defense:**
+- **Off-chain (TypeScript)**: Sub-millisecond policy evaluation, risk scoring, anomaly detection, audit logging
+- **On-chain (Solidity)**: Tamper-proof spending limits and recipient allowlists that the agent cannot bypass
+
+## MCP Tools (14)
+
+| Category | Tool | Description |
+|----------|------|-------------|
+| **Wallet** | `warden_create_wallet` | Create a new agent wallet with policy |
+| | `warden_get_balance` | Check ETH and token balances |
+| | `warden_transfer` | Send tokens (validated against policy) |
+| | `warden_get_audit_log` | Fetch transaction decision history |
+| **Policy** | `warden_setup_policy` | Configure policy from natural language |
+| | `warden_get_policy_status` | View spending status and limits |
+| | `warden_update_policy` | Modify policy at runtime |
+| **EIP-7702** | `warden_delegate_to_policy` | Delegate EOA to PolicyDelegate contract |
+| | `warden_create_session_key` | Scoped sub-agent permissions |
+| | `warden_revoke_session_key` | Revoke sub-agent access |
+| **Safety** | `warden_freeze` | Emergency halt all operations |
+| | `warden_unfreeze` | Resume after freeze |
+| | `warden_register_identity` | Register on ERC-8004 identity registry |
+| **Permissions** | `warden_grant_permissions` | Grant ERC-7715 permissions |
+
+## Features
+
+- **19 enforcement rules**: per-tx limits, daily/weekly/monthly caps, token/recipient allowlists, cooldowns, time windows, anomaly detection
+- **8-factor risk scoring**: velocity, burn rate, recipient novelty, escalation, concentration, burst, deviation, timing
+- **7 policy templates**: conservative, moderate, aggressive, transfer-only, DeFi, ramp-up, tiered
+- **Session keys**: Scoped, time-limited permissions with function selector controls
+- **Anomaly detection**: Burst patterns, escalation, concentration, statistical deviation
+- **Emergency controls**: Freeze/unfreeze, dead man's switch
+- **Cross-agent budget pools**: Shared spending limits across multiple agents
+- **ERC-8004 identity**: Reputation-gated session key creation
+- **Real-time dashboard**: Monitor agents, view audit logs, control policies
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Smart Contracts | Solidity 0.8.28, Hardhat, OpenZeppelin |
+| Policy Engine | TypeScript, viem (EIP-7702) |
+| MCP Server | @modelcontextprotocol/sdk, zod |
+| Dashboard | React, Vite, Tailwind CSS, Recharts |
+| API Server | Express, TypeScript |
+| Network | Ethereum Sepolia Testnet |
+| USDT | Real Sepolia USDT (`0x7169D38820dfd117C3FA1f22a697dBA58d90BA06`) |
+
+## Development
 
 ```bash
-git clone https://github.com/aspect-warden/warden.git
+git clone https://github.com/AtmegaBuzz/warden.git
 cd warden
 npm install
 
-# Run the multi-agent demo (standalone, no env vars needed)
-npx tsx demo/multi-agent-demo.ts
+# Build all packages
+npm run build
 
-# Run contract tests (66 passing)
-cd packages/contracts && npx hardhat test
+# Run multi-agent demo (standalone, no env vars needed)
+npm run demo
 
-# Run policy engine tests (72 passing)
-cd packages/policy-engine && npx vitest run
+# Run tests
+npm test                          # all tests
+npm run test:contracts            # 66 Solidity tests
+npm run test:engine               # 72 policy engine tests
 
-# Start the dashboard
-cd packages/api-server && npm run dev &
-cd packages/dashboard && npm run dev
-# Open http://localhost:3002
+# Start dashboard + API
+npm run dev:all                   # http://localhost:3002
+
+# Start MCP server standalone
+npm run mcp
+```
+
+### Environment Variables
+
+Copy `.env.example` to `.env`:
+
+```bash
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
+DEPLOYER_PRIVATE_KEY=0x...             # Sepolia wallet for gas
+POLICY_DELEGATE_ADDRESS=0x...          # after deploying the contract
+SEPOLIA_USDT_ADDRESS=0x7169D38820dfd117C3FA1f22a697dBA58d90BA06
 ```
 
 ## Project Structure
@@ -141,28 +229,25 @@ cd packages/dashboard && npm run dev
 ```
 warden/
 ├── packages/
-│   ├── contracts/          # Solidity — PolicyDelegate.sol + Hardhat tests
-│   ├── policy-engine/      # TypeScript — PolicyEngine, AuditLogger, EIP7702Manager
-│   ├── mcp-server/         # MCP server — 14 tools for AI agent frameworks
-│   ├── api-server/         # Express API — bridges dashboard to policy engine
-│   └── dashboard/          # React + Vite — real-time monitoring UI
+│   ├── policy-engine/      # @aspect-warden/policy-engine (npm)
+│   ├── mcp-server/         # @aspect-warden/mcp-server (npm)
+│   ├── contracts/          # PolicyDelegate.sol + Hardhat tests
+│   ├── api-server/         # Express API for audit logs
+│   └── dashboard/          # React monitoring UI
+├── agents/
+│   └── skills/
+│       └── warden-wallet/  # OpenClaw agent skill (SKILL.md)
 ├── demo/
-│   └── multi-agent-demo.ts # Standalone demo (run with npx tsx)
+│   └── multi-agent-demo.ts # 3-agent policy demo
 └── package.json            # npm workspaces root
 ```
 
-## Why Warden?
+## Standards
 
-- **Real EIP-7702 delegation** — working on-chain, not just documentation
-- **Two-layer defense**: 19-rule TypeScript engine + Solidity enforcement
-- **138 tests** — 66 Solidity (Hardhat) + 72 TypeScript (vitest)
-- **8-factor risk scoring** with weighted behavioral analysis
-- **Dead man's switch** — automatic freeze if owner goes offline
-- Working **MCP server** with 11 tools for any AI agent framework
-- **ERC-8004 identity** — reputation-gated session keys
-- Uses **real Sepolia USDT** — no mock tokens
-- **Reversible delegation** — agents keep their original EOA address
-- **7 policy templates** + cross-agent budget pools
+- **EIP-7702** — EOA delegation to PolicyDelegate contract
+- **EIP-7715** — Permission grants for agents
+- **EIP-7821** — Minimal batch executor
+- **ERC-8004** — On-chain agent identity registry
 
 ## License
 
