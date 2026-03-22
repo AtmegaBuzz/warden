@@ -8,7 +8,15 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspace=packages/contracts",
-    "demo": "npx tsx demo/multi-agent-demo.ts"
+    "dev": "npm run dev --workspace=packages/dashboard",
+    "dev:api": "npm run dev --workspace=packages/api-server",
+    "dev:all": "npm run dev:api & npm run dev",
+    "test": "npm run test:contracts && npm run test:engine",
+    "test:contracts": "npm run test --workspace=packages/contracts",
+    "test:engine": "npm run test --workspace=packages/policy-engine",
+    "compile": "npm run compile --workspace=packages/contracts",
+    "deploy:sepolia": "npm run deploy:sepolia --workspace=packages/contracts",
+    "demo": "npx tsx demo/multi-agent-demo.ts",
+    "mcp": "npm run start --workspace=packages/mcp-server"
   }
 }
