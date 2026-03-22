@@ -99,7 +99,7 @@ export function PolicyRulesTab() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold text-slate-900 mb-1">
-          10 Policy Rules — How ClawVault Protects Agent Wallets
+          10 Policy Rules — How Warden Protects Agent Wallets
         </h2>
         <p className="text-sm text-slate-500">
           Every transaction passes through all 10 rules. A single rule violation blocks the transaction.
