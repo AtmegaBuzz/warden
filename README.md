@@ -60,10 +60,64 @@ AI Agent ──> Warden Policy Engine ──> WDK Wallet ──> Sepolia
 | Network | Ethereum Sepolia Testnet |
 | USDT | Real Sepolia USDT (`0x7169D38820dfd117C3FA1f22a697dBA58d90BA06`) |
 
+## npm Packages
+
+| Package | Install |
+|---------|---------|
+| [`@aspect-warden/policy-engine`](https://www.npmjs.com/package/@aspect-warden/policy-engine) | `npm install @aspect-warden/policy-engine` |
+| [`@aspect-warden/mcp-server`](https://www.npmjs.com/package/@aspect-warden/mcp-server) | `npm install @aspect-warden/mcp-server` |
+
 ## Quick Start
 
+### Use with Claude Desktop / OpenClaw
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "warden": {
+      "command": "npx",
+      "args": ["@aspect-warden/mcp-server"],
+      "env": {
+        "RPC_URL": "https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop and ask: *"Create a conservative wallet with max $50/day spending on USDT."*
+
+For OpenClaw, install the skill: `npx skills add tetherto/wdk-agent-skills`
+
+### Use as a Library
+
 ```bash
-git clone https://github.com/YOUR_REPO/warden.git
+npm install @aspect-warden/policy-engine
+```
+
+```typescript
+import { PolicyEngine, AuditLogger, conservativePolicy } from '@aspect-warden/policy-engine';
+
+const engine = new PolicyEngine(conservativePolicy('my-agent'));
+const logger = new AuditLogger();
+
+const decision = engine.evaluate({
+  to: '0xRecipient',
+  value: 50_000000n,    // 50 USDT (6 decimals)
+  token: '0xUSDT',
+  chain: 'sepolia',
+});
+// { approved: true, riskScore: 25, reason: 'All policy checks passed', ... }
+
+logger.log(decision);
+```
+
+### Run from Source
+
+```bash
+git clone https://github.com/aspect-warden/warden.git
 cd warden
 npm install
 
@@ -82,37 +136,6 @@ cd packages/dashboard && npm run dev
 # Open http://localhost:3002
 ```
 
-## Using as npm Module
-
-```typescript
-import { PolicyEngine, EIP7702Manager, AuditLogger } from '@warden/policy-engine';
-
-const engine = new PolicyEngine({
-  agentId: 'my-agent',
-  maxPerTx: 100_000000n,    // 100 USDT (6 decimals)
-  dailyLimit: 500_000000n,  // 500 USDT
-  cooldownMs: 30000,        // 30s between transactions
-  requireApprovalAbove: 1000_000000n,
-  allowedTokens: [],
-  blockedTokens: [],
-  allowedRecipients: [],
-  blockedRecipients: [],
-  allowedChains: ['sepolia'],
-  anomalyDetection: {
-    maxTxPerHour: 10,
-    maxRecipientsPerHour: 5,
-    largeTransactionPct: 50,
-  },
-});
-
-const decision = engine.evaluate(recipientAddress, 50_000000n);
-// { approved: true, riskScore: 25, reason: 'All policy checks passed', ... }
-
-if (decision.approved) {
-  engine.recordTransaction(50_000000n, recipientAddress);
-}
-```
-
 ## Project Structure
 
 ```
@@ -120,7 +143,7 @@ warden/
 ├── packages/
 │   ├── contracts/          # Solidity — PolicyDelegate.sol + Hardhat tests
 │   ├── policy-engine/      # TypeScript — PolicyEngine, AuditLogger, EIP7702Manager
-│   ├── mcp-server/         # MCP server — 11 tools for AI agent frameworks
+│   ├── mcp-server/         # MCP server — 14 tools for AI agent frameworks
 │   ├── api-server/         # Express API — bridges dashboard to policy engine
 │   └── dashboard/          # React + Vite — real-time monitoring UI
 ├── demo/
