@@ -99,7 +99,7 @@ export function AuditLogTab({ auditLog }: Props) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'clawvault-audit-log.json'
+    a.download = 'warden-audit-log.json'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -121,7 +121,7 @@ export function AuditLogTab({ auditLog }: Props) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'clawvault-audit-log.csv'
+    a.download = 'warden-audit-log.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
