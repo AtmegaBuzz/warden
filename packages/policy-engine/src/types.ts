@@ -109,10 +109,62 @@ export interface AuditEntry extends PolicyDecision {
   gasUsed?: bigint;
 }
 
+// ============ WDK Compatible Types ============
+
+export interface EvmTransaction {
+  to: string;
+  value: number | bigint;
+  data?: string;
+  gasLimit?: number | bigint;
+  gasPrice?: number | bigint;
+  maxFeePerGas?: number | bigint;
+  maxPriorityFeePerGas?: number | bigint;
+}
+
+export interface TransferOptions {
+  token: string;
+  recipient: string;
+  amount: number | bigint;
+}
+
+export interface TransactionResult {
+  hash: string;
+  fee: bigint;
+}
+
+export interface IWalletAccount {
+  getAddress(): Promise<string>;
+  getBalance(): Promise<bigint>;
+  getTokenBalance(tokenAddress: string): Promise<bigint>;
+  getTokenBalances(tokenAddresses: string[]): Promise<Record<string, bigint>>;
+  sendTransaction(tx: EvmTransaction): Promise<TransactionResult>;
+  quoteSendTransaction(tx: EvmTransaction): Promise<{ fee: bigint }>;
+  transfer(options: TransferOptions): Promise<TransactionResult>;
+  quoteTransfer(options: TransferOptions): Promise<{ fee: bigint }>;
+  sign(message: string): Promise<string>;
+  verify(message: string, signature: string): Promise<boolean>;
+  dispose(): void;
+  index: number;
+  path: string;
+  keyPair: { privateKey: Uint8Array | null; publicKey: Uint8Array };
+}
+
+export interface IWrappableAccount {
+  getAddress(): Promise<string>;
+  getBalance(): Promise<bigint>;
+  getTokenBalance(tokenAddress: string): Promise<bigint>;
+  sendTransaction(tx: EvmTransaction): Promise<TransactionResult>;
+  quoteSendTransaction(tx: EvmTransaction): Promise<{ fee: bigint }>;
+  transfer(options: TransferOptions): Promise<TransactionResult>;
+  quoteTransfer(options: TransferOptions): Promise<{ fee: bigint }>;
+  sign(message: string): Promise<string>;
+  dispose(): void;
+}
+
 // ============ Wallet Config ============
 
 export interface PolicyWalletConfig {
-  underlying: unknown;
+  underlying: IWalletAccount | null;
   provider: string;
   policy: AgentPolicy;
   policyDelegateAddress?: string;

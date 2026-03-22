@@ -11,6 +11,14 @@
   "dependencies": {
     "viem": "^2.0.0"
   },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet-evm": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@tetherto/wdk-wallet-evm": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "typescript": "^5.4.0",
     "vitest": "^1.0.0",

@@ -19,6 +19,8 @@ export {
   type ProtocolPolicy,
 } from './ProtocolPolicies.js';
 export { ERC8004Manager } from './ERC8004Manager.js';
+export type { PolicyWalletManagerConfig } from './PolicyWalletManager.js';
+export type { WardenMiddlewareConfig } from './WardenMiddleware.js';
 export type {
   AgentPolicy,
   PolicyDecision,
@@ -31,4 +33,9 @@ export type {
   TieredAuthorizationConfig,
   AuthorizationTier,
   DefiPolicyConfig,
+  IWalletAccount,
+  IWrappableAccount,
+  EvmTransaction,
+  TransferOptions,
+  TransactionResult,
 } from './types.js';

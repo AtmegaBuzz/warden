@@ -1,16 +1,14 @@
-import { PolicyEngine } from './PolicyEngine.js';
 import { PolicyAccount } from './PolicyAccount.js';
-import { AuditLogger } from './AuditLogger.js';
 import { EIP7702Manager } from './EIP7702Manager.js';
-import type { AgentPolicy, PolicyWalletConfig } from './types.js';
+import type { AgentPolicy, PolicyWalletConfig, AuditEntry, PolicyDecision, IWalletAccount } from './types.js';
 
 export interface PolicyWalletManagerConfig {
   provider: string;
   policy: AgentPolicy;
   policyDelegateAddress?: string;
   privateKey?: string;
-  onAuditLog?: (entry: unknown) => void | Promise<void>;
-  onApprovalRequired?: (decision: unknown) => Promise<boolean>;
+  onAuditLog?: (entry: AuditEntry) => void | Promise<void>;
+  onApprovalRequired?: (decision: PolicyDecision) => Promise<boolean>;
   transferMaxFee?: bigint;
   chainId?: number;
 }
@@ -53,21 +51,19 @@ export class PolicyWalletManager {
    * The returned PolicyAccount intercepts all transactions
    * and validates them against the configured policy before execution.
    */
-  async wrapAccount(innerAccount: unknown, chain: string = 'ethereum'): Promise<PolicyAccount> {
+  async wrapAccount(innerAccount: IWalletAccount, chain: string = 'ethereum'): Promise<PolicyAccount> {
     const walletConfig: PolicyWalletConfig = {
       underlying: innerAccount,
       provider: this.config.provider,
       policy: this.config.policy,
       policyDelegateAddress: this.config.policyDelegateAddress,
-      onAuditLog: this.config.onAuditLog as PolicyWalletConfig['onAuditLog'],
-      onApprovalRequired: this.config.onApprovalRequired as PolicyWalletConfig['onApprovalRequired'],
+      onAuditLog: this.config.onAuditLog,
+      onApprovalRequired: this.config.onApprovalRequired,
       transferMaxFee: this.config.transferMaxFee,
     };
 
     const account = new PolicyAccount(
-      innerAccount as Parameters<typeof PolicyAccount.prototype['getAddress']> extends never[]
-        ? never
-        : any,
+      innerAccount,
       walletConfig,
       chain,
       this.eip7702,

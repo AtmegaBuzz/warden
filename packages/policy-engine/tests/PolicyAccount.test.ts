@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PolicyAccount, PolicyError } from '../src/PolicyAccount.js';
-import type { PolicyWalletConfig, AgentPolicy } from '../src/types.js';
+import type { PolicyWalletConfig, AgentPolicy, IWrappableAccount } from '../src/types.js';
 
 function makePolicy(): AgentPolicy {
   return {
@@ -17,7 +17,7 @@ function makePolicy(): AgentPolicy {
   };
 }
 
-function makeMockAccount() {
+function makeMockAccount(): IWrappableAccount {
   return {
     getAddress: vi.fn().mockResolvedValue('0x1234567890abcdef1234567890abcdef12345678'),
     getBalance: vi.fn().mockResolvedValue(1000_000000n),

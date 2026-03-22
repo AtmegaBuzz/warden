@@ -1,14 +1,12 @@
 import { PolicyAccount } from './PolicyAccount.js';
-import { AuditLogger } from './AuditLogger.js';
-import { PolicyEngine } from './PolicyEngine.js';
-import type { AgentPolicy, PolicyWalletConfig } from './types.js';
+import type { AgentPolicy, PolicyWalletConfig, AuditEntry, PolicyDecision, IWalletAccount } from './types.js';
 
 export interface WardenMiddlewareConfig {
   policy: AgentPolicy;
   provider: string;
   policyDelegateAddress?: string;
-  onAuditLog?: (entry: unknown) => void | Promise<void>;
-  onApprovalRequired?: (decision: unknown) => Promise<boolean>;
+  onAuditLog?: (entry: AuditEntry) => void | Promise<void>;
+  onApprovalRequired?: (decision: PolicyDecision) => Promise<boolean>;
 }
 
 /**
@@ -28,20 +26,20 @@ export interface WardenMiddlewareConfig {
  * will be transparently wrapped with policy enforcement.
  */
 export function wardenMiddleware(config: WardenMiddlewareConfig) {
-  return async function middleware(account: unknown): Promise<PolicyAccount> {
+  return async function middleware<A extends IWalletAccount>(account: A): Promise<PolicyAccount> {
     const walletConfig: PolicyWalletConfig = {
       underlying: account,
       provider: config.provider,
       policy: config.policy,
       policyDelegateAddress: config.policyDelegateAddress,
-      onAuditLog: config.onAuditLog as PolicyWalletConfig['onAuditLog'],
-      onApprovalRequired: config.onApprovalRequired as PolicyWalletConfig['onApprovalRequired'],
+      onAuditLog: config.onAuditLog,
+      onApprovalRequired: config.onApprovalRequired,
     };
 
     const chain = config.policy.allowedChains?.[0] ?? 'ethereum';
 
     return new PolicyAccount(
-      account as any,
+      account,
       walletConfig,
       chain,
     );

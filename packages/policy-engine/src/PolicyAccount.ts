@@ -1,7 +1,7 @@
 import { PolicyEngine } from './PolicyEngine.js';
 import { AuditLogger } from './AuditLogger.js';
 import { EIP7702Manager } from './EIP7702Manager.js';
-import type { AgentPolicy, PolicyDecision, PolicyWalletConfig, SpendingTracker } from './types.js';
+import type { AgentPolicy, PolicyDecision, PolicyWalletConfig, SpendingTracker, IWrappableAccount, EvmTransaction, TransferOptions, TransactionResult } from './types.js';
 
 export class PolicyError extends Error {
   public decision: PolicyDecision;
@@ -12,25 +12,8 @@ export class PolicyError extends Error {
   }
 }
 
-interface InnerAccount {
-  getAddress(): Promise<string>;
-  getBalance(): Promise<bigint>;
-  getTokenBalance(tokenAddress: string): Promise<bigint>;
-  sendTransaction(params: {
-    to: string; value: bigint; data?: string;
-    maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint;
-  }): Promise<{ hash: string; fee: bigint }>;
-  transfer(params: {
-    token: string; recipient: string; amount: bigint;
-  }): Promise<{ hash: string; fee: bigint }>;
-  quoteSendTransaction(params: { to: string; value: bigint }): Promise<{ fee: bigint }>;
-  quoteTransfer(params: { token: string; recipient: string; amount: bigint }): Promise<{ fee: bigint }>;
-  sign(message: string): Promise<string>;
-  dispose(): void;
-}
-
 export class PolicyAccount {
-  private innerAccount: InnerAccount;
+  private innerAccount: IWrappableAccount;
   private engine: PolicyEngine;
   private logger: AuditLogger;
   private eip7702?: EIP7702Manager;
@@ -38,7 +21,7 @@ export class PolicyAccount {
   private chain: string;
 
   constructor(
-    innerAccount: InnerAccount,
+    innerAccount: IWrappableAccount,
     config: PolicyWalletConfig,
     chain: string,
     eip7702?: EIP7702Manager
@@ -55,11 +38,9 @@ export class PolicyAccount {
   async getBalance(): Promise<bigint> { return this.innerAccount.getBalance(); }
   async getTokenBalance(tokenAddress: string): Promise<bigint> { return this.innerAccount.getTokenBalance(tokenAddress); }
 
-  async sendTransaction(params: {
-    to: string; value: bigint; data?: string;
-    maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint;
-  }): Promise<{ hash: string; fee: bigint }> {
-    const decision = this.engine.evaluate(params.to, params.value, undefined, this.chain);
+  async sendTransaction(params: EvmTransaction): Promise<TransactionResult> {
+    const value = BigInt(params.value);
+    const decision = this.engine.evaluate(params.to, value, undefined, this.chain);
 
     if (!decision.approved) {
       if (decision.ruleTriggered === 'requireApproval' && this.config.onApprovalRequired) {
@@ -79,7 +60,7 @@ export class PolicyAccount {
       const onChainApproved = await this.eip7702.validateOnChain(
         this.config.policy.sessionKey.address as `0x${string}`,
         params.to as `0x${string}`,
-        params.value
+        value
       );
       if (!onChainApproved) {
         const blocked: PolicyDecision = {
@@ -94,7 +75,7 @@ export class PolicyAccount {
 
     try {
       const result = await this.innerAccount.sendTransaction(params);
-      this.engine.recordTransaction(params.value, params.to);
+      this.engine.recordTransaction(value, params.to);
       let blockNumber = 0;
       if (this.eip7702) {
         try {
@@ -114,10 +95,9 @@ export class PolicyAccount {
     }
   }
 
-  async transfer(params: {
-    token: string; recipient: string; amount: bigint;
-  }): Promise<{ hash: string; fee: bigint }> {
-    const decision = this.engine.evaluate(params.recipient, params.amount, params.token, this.chain);
+  async transfer(params: TransferOptions): Promise<TransactionResult> {
+    const amount = BigInt(params.amount);
+    const decision = this.engine.evaluate(params.recipient, amount, params.token, this.chain);
 
     if (!decision.approved) {
       if (decision.ruleTriggered === 'requireApproval' && this.config.onApprovalRequired) {
@@ -137,7 +117,7 @@ export class PolicyAccount {
       const onChainApproved = await this.eip7702.validateOnChain(
         this.config.policy.sessionKey.address as `0x${string}`,
         params.recipient as `0x${string}`,
-        params.amount,
+        amount,
         params.token as `0x${string}`
       );
       if (!onChainApproved) {
@@ -153,7 +133,7 @@ export class PolicyAccount {
 
     try {
       const result = await this.innerAccount.transfer(params);
-      this.engine.recordTransaction(params.amount, params.recipient);
+      this.engine.recordTransaction(amount, params.recipient);
       let blockNumber = 0;
       if (this.eip7702) {
         try {
@@ -173,11 +153,11 @@ export class PolicyAccount {
     }
   }
 
-  async quoteSendTransaction(params: { to: string; value: bigint }): Promise<{ fee: bigint }> {
+  async quoteSendTransaction(params: Pick<EvmTransaction, 'to' | 'value'>): Promise<{ fee: bigint }> {
     return this.innerAccount.quoteSendTransaction(params);
   }
 
-  async quoteTransfer(params: { token: string; recipient: string; amount: bigint }): Promise<{ fee: bigint }> {
+  async quoteTransfer(params: TransferOptions): Promise<{ fee: bigint }> {
     return this.innerAccount.quoteTransfer(params);
   }
 
