@@ -50,7 +50,7 @@ interface ContractInfo {
   version: string
 }
 
-export function useClawVault(selectedAgent: string | null) {
+export function useWarden(selectedAgent: string | null) {
   const [agents, setAgents] = useState<string[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([])
