@@ -6,7 +6,7 @@ import { LiveDashboardTab } from './components/LiveDashboardTab'
 import { ArchitectureTab } from './components/ArchitectureTab'
 import { EIP7702Tab } from './components/EIP7702Tab'
 import { AuditLogTab } from './components/AuditLogTab'
-import { useWarden } from './hooks/useClawVault'
+import { useWarden } from './hooks/useWarden'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('Live Testnet')

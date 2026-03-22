@@ -3,7 +3,7 @@ export { PolicyAccount, PolicyError } from './PolicyAccount.js';
 export { AuditLogger } from './AuditLogger.js';
 export { EIP7702Manager } from './EIP7702Manager.js';
 export { PolicyWalletManager } from './PolicyWalletManager.js';
-export { wardenMiddleware } from './ClawVaultMiddleware.js';
+export { wardenMiddleware } from './WardenMiddleware.js';
 export { IndexerService } from './IndexerService.js';
 export { CHAIN_CONFIGS, getChainConfig, getSupportedChains, getTestnetChains } from './chainConfigs.js';
 export { ContractRiskClassifier, type RiskLevel, type ContractClassification } from './ContractRiskClassifier.js';
