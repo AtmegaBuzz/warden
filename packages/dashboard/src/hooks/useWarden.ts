@@ -29,6 +29,7 @@ interface PolicyDecision {
   agentId: string
   transactionDetails: { to: string; value: string; token?: string; chain: string }
   onChain?: boolean
+  onChainApproved?: boolean | null
   txHash?: string | null
   etherscanUrl?: string | null
   blockNumber?: number
@@ -43,15 +44,34 @@ interface WalletInfo {
 }
 
 interface ContractInfo {
-  policyDelegateAddress: string
-  usdtContractAddress: string
-  deployerAddress: string
+  deployed: boolean
+  address: string
   network: string
-  version: string
+  version?: string | null
+  etherscan?: string
+}
+
+export interface AgentInfo {
+  id: string
+  walletAddress: string | null
+  frozen: boolean
+  sessionKeyRevoked: boolean
+  balance: { eth: string; usdt: string } | null
+  onChainState: { valid: boolean; remainingBudget: string; remainingBudgetUsdt: string } | null
+  spending: { spent: string; remaining: string; txCount: number }
+  policy: Record<string, unknown>
+}
+
+interface ApiMode {
+  mode: 'live' | 'simulated'
+  rpcUrl: string
+  policyDelegate: string | null
+  network: string
 }
 
 export function useWarden(selectedAgent: string | null) {
-  const [agents, setAgents] = useState<string[]>([])
+  const [agents, setAgents] = useState<AgentInfo[]>([])
+  const [agentIds, setAgentIds] = useState<string[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -59,6 +79,7 @@ export function useWarden(selectedAgent: string | null) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null)
   const [contractInfo, setContractInfo] = useState<ContractInfo | null>(null)
+  const [apiMode, setApiMode] = useState<ApiMode | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,7 +93,9 @@ export function useWarden(selectedAgent: string | null) {
         throw new Error('API request failed')
       }
 
-      setAgents(await agentsRes.json() as string[])
+      const agentsData = await agentsRes.json() as AgentInfo[]
+      setAgents(agentsData)
+      setAgentIds(agentsData.map(a => a.id))
       setStats(await statsRes.json() as Stats)
       setAuditLog(await logRes.json() as AuditEntry[])
       setError(null)
@@ -88,31 +111,31 @@ export function useWarden(selectedAgent: string | null) {
   const fetchContractInfo = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/contract-info`)
-      if (res.ok) {
-        setContractInfo(await res.json() as ContractInfo)
-      }
-    } catch {
-      // contract-info endpoint may not be available
-    }
+      if (res.ok) setContractInfo(await res.json() as ContractInfo)
+    } catch {}
+  }, [])
+
+  const fetchMode = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/mode`)
+      if (res.ok) setApiMode(await res.json() as ApiMode)
+    } catch {}
   }, [])
 
   const fetchWalletInfo = useCallback(async (address: string) => {
     try {
       const res = await fetch(`${API}/api/wallet-info?address=${encodeURIComponent(address)}`)
-      if (res.ok) {
-        setWalletInfo(await res.json() as WalletInfo)
-      }
-    } catch {
-      // wallet-info endpoint may not be available
-    }
+      if (res.ok) setWalletInfo(await res.json() as WalletInfo)
+    } catch {}
   }, [])
 
   useEffect(() => {
     void fetchData()
     void fetchContractInfo()
+    void fetchMode()
     const interval = setInterval(() => void fetchData(), 3000)
     return () => clearInterval(interval)
-  }, [fetchData, fetchContractInfo])
+  }, [fetchData, fetchContractInfo, fetchMode])
 
   const freezeAgent = async (agentId: string) => {
     const res = await fetch(`${API}/api/freeze`, {
@@ -166,10 +189,11 @@ export function useWarden(selectedAgent: string | null) {
   }
 
   return {
-    agents, stats, auditLog, loading, error, lastUpdate,
-    walletInfo, contractInfo,
+    agents, agentIds, stats, auditLog, loading, error, lastUpdate,
+    walletInfo, contractInfo, apiMode,
     freezeAgent, unfreezeAgent, revokeSessionKey, updatePolicy, simulateTransaction,
     fetchWalletInfo, fetchContractInfo,
     refresh: fetchData,
+    isLive: apiMode?.mode === 'live',
   }
 }
