@@ -349,6 +349,48 @@ app.post('/api/execute-transfer', async (req, res) => {
   }
 });
 
+// -- GET /api/erc8004-status ------------------------------------------------
+
+app.get('/api/erc8004-status', async (_req, res) => {
+  const identityRegistry = process.env.ERC8004_IDENTITY_REGISTRY;
+  const reputationRegistry = process.env.ERC8004_REPUTATION_REGISTRY;
+
+  if (!identityRegistry || !reputationRegistry) {
+    res.json({
+      configured: false,
+      identityRegistry: identityRegistry || 'not set',
+      reputationRegistry: reputationRegistry || 'not set',
+    });
+    return;
+  }
+
+  try {
+    const [identityCode, reputationCode] = await Promise.all([
+      publicClient.getCode({ address: identityRegistry as `0x${string}` }),
+      publicClient.getCode({ address: reputationRegistry as `0x${string}` }),
+    ]);
+
+    res.json({
+      configured: true,
+      identityRegistry: {
+        address: identityRegistry,
+        deployed: identityCode !== undefined && identityCode !== '0x',
+        etherscan: `https://sepolia.etherscan.io/address/${identityRegistry}`,
+      },
+      reputationRegistry: {
+        address: reputationRegistry,
+        deployed: reputationCode !== undefined && reputationCode !== '0x',
+        etherscan: `https://sepolia.etherscan.io/address/${reputationRegistry}`,
+      },
+      standard: 'ERC-8004',
+      description: 'Trustless Agents — on-chain identity, reputation, and validation',
+    });
+  } catch (e: unknown) {
+    const err = e as Error;
+    res.status(500).json({ error: err.message?.slice(0, 200) });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------

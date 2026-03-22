@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { CheckCircle, XCircle, Download, AlertTriangle, Shield } from 'lucide-react'
+import { CheckCircle, XCircle, Download, AlertTriangle, Shield, ExternalLink } from 'lucide-react'
 import { USDT_DIVISOR } from '../constants'
 
 interface AuditEntry {
@@ -193,6 +193,7 @@ export function AuditLogTab({ auditLog }: Props) {
                 <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Risk</th>
                 <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Rule</th>
                 <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Result</th>
+                <th className="text-center py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Tx</th>
               </tr>
             </thead>
             <tbody>
@@ -245,12 +246,27 @@ export function AuditLogTab({ auditLog }: Props) {
                       </span>
                     )}
                   </td>
+                  <td className="py-2.5 px-4 text-center">
+                    {entry.txHash ? (
+                      <a
+                        href={`https://sepolia.etherscan.io/tx/${entry.txHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-orange-600 hover:text-orange-800 text-xs font-mono transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        {entry.txHash.slice(0, 8)}...
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-300">-</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {filteredEntries.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-slate-400 py-12 text-sm">
-                    No entries match current filters.
+                  <td colSpan={9} className="text-center text-slate-400 py-12 text-sm">
+                    No transactions match your filters.
                   </td>
                 </tr>
               )}

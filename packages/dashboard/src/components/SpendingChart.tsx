@@ -52,7 +52,7 @@ export function SpendingChart({ auditLog }: { auditLog: AuditEntry[] }) {
         </ResponsiveContainer>
       ) : (
         <div className="flex items-center justify-center h-[220px] text-slate-400 text-sm">
-          No chart data yet. Use the Simulator tab to generate transactions.
+          No chart data yet. Use the Live Testnet tab to generate transactions.
         </div>
       )}
     </div>

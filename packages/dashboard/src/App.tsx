@@ -9,7 +9,7 @@ import { AuditLogTab } from './components/AuditLogTab'
 import { useWarden } from './hooks/useClawVault'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<Tab>('Simulator')
+  const [activeTab, setActiveTab] = useState<Tab>('Live Testnet')
 
   const {
     stats, auditLog, error, lastUpdate,
@@ -24,7 +24,7 @@ export default function App() {
       <TabNav active={activeTab} onChange={setActiveTab} />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {activeTab === 'Simulator' && (
+        {activeTab === 'Live Testnet' && (
           <SimulatorTab
             onSimulate={simulateTransaction}
             auditLog={auditLog}

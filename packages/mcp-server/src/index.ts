@@ -56,7 +56,7 @@ const ERC8004_ABI = parseAbi([
   'event AgentRegistered(uint256 indexed agentId, address indexed owner, string name)',
 ]);
 
-// PolicyEngine and AuditLogger imported from @aspect-warden/policy-engine above
+// PolicyEngine and AuditLogger imported from @aspect-warden/policy-engine
 
 // ============================================================
 // MCP Server State
@@ -84,6 +84,27 @@ interface SessionKeyData {
 }
 
 const sessionKeys = new Map<string, SessionKeyData>();
+
+// ERC-7715 permission grants tracked per agentId
+interface Erc7715Permission {
+  type: 'token-transfer' | 'contract-call' | 'native-transfer';
+  token?: string;
+  maxPerTx?: number;
+  dailyLimit?: number;
+  allowedRecipients?: string[];
+  allowedContracts?: string[];
+}
+
+interface Erc7715Grant {
+  agentId: string;
+  permissions: Erc7715Permission[];
+  expiry: number;
+  cooldownSeconds: number;
+  grantedAt: number;
+  txHash?: string;
+}
+
+const permissionGrants = new Map<string, Erc7715Grant>();
 
 // ============================================================
 // BigInt-safe JSON serializer
@@ -894,6 +915,363 @@ server.tool(
         isError: true,
       };
     }
+  }
+);
+
+// ============================================================
+// Tool 12: Grant Permissions (ERC-7715)
+// ============================================================
+
+server.tool(
+  'warden_grant_permissions',
+  'Grant scoped permissions to an AI agent following ERC-7715 standard. Updates policy engine limits and optionally creates an on-chain session key.',
+  {
+    agentId: z.string().describe('Agent identifier to grant permissions to'),
+    permissions: z.array(z.object({
+      type: z.enum(['token-transfer', 'contract-call', 'native-transfer']).describe('Permission type'),
+      token: z.string().optional().describe('Token address for token-transfer type'),
+      maxPerTx: z.number().optional().describe('Max per transaction in USDT'),
+      dailyLimit: z.number().optional().describe('Daily spending limit in USDT'),
+      allowedRecipients: z.array(z.string()).optional().describe('Allowed recipient addresses'),
+      allowedContracts: z.array(z.string()).optional().describe('Allowed contract addresses for contract-call type'),
+    })).describe('Scoped permissions to grant'),
+    expiry: z.number().describe('Unix timestamp (seconds) when permissions expire'),
+    cooldownSeconds: z.number().default(30).describe('Min seconds between transactions'),
+  },
+  async ({ agentId, permissions, expiry, cooldownSeconds }) => {
+    if (!policyEngine || !auditLogger) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
+        isError: true,
+      };
+    }
+
+    if (permissions.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: 'At least one permission must be specified.' }) }],
+        isError: true,
+      };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (expiry <= now) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: `Expiry ${expiry} is in the past. Current time: ${now}` }) }],
+        isError: true,
+      };
+    }
+
+    // Derive aggregate limits from permissions: take the highest maxPerTx and dailyLimit across all scopes
+    let aggregateMaxPerTx = 0;
+    let aggregateDailyLimit = 0;
+    const allowedTokens: string[] = [];
+    const allowedRecipients: string[] = [];
+
+    for (const perm of permissions) {
+      if (perm.maxPerTx !== undefined && perm.maxPerTx > aggregateMaxPerTx) {
+        aggregateMaxPerTx = perm.maxPerTx;
+      }
+      if (perm.dailyLimit !== undefined && perm.dailyLimit > aggregateDailyLimit) {
+        aggregateDailyLimit = perm.dailyLimit;
+      }
+      if (perm.type === 'token-transfer' && perm.token) {
+        allowedTokens.push(perm.token.toLowerCase());
+      }
+      if (perm.allowedRecipients) {
+        for (const r of perm.allowedRecipients) {
+          if (!allowedRecipients.includes(r.toLowerCase())) {
+            allowedRecipients.push(r.toLowerCase());
+          }
+        }
+      }
+    }
+
+    const policyUpdates: Partial<AgentPolicy> = {
+      cooldownMs: cooldownSeconds * 1000,
+      sessionKey: {
+        address: agentId,
+        validUntil: expiry * 1000,
+      },
+    };
+
+    if (aggregateMaxPerTx > 0) {
+      policyUpdates.maxPerTx = BigInt(aggregateMaxPerTx) * 1_000000n;
+    }
+    if (aggregateDailyLimit > 0) {
+      policyUpdates.dailyLimit = BigInt(aggregateDailyLimit) * 1_000000n;
+    }
+    if (allowedTokens.length > 0) {
+      policyUpdates.allowedTokens = allowedTokens;
+    }
+    if (allowedRecipients.length > 0) {
+      policyUpdates.allowedRecipients = allowedRecipients;
+    }
+
+    // On-chain session key if delegate is configured
+    let txHash: string | undefined;
+    if (POLICY_DELEGATE_ADDRESS && publicClient && walletClient && storedPrivateKey) {
+      try {
+        const wallet = requireWallet();
+        const account = privateKeyToAccount(storedPrivateKey);
+        const maxPerTxWei = BigInt(aggregateMaxPerTx) * 1_000000n;
+        const dailyLimitWei = BigInt(aggregateDailyLimit) * 1_000000n;
+
+        const data = encodeFunctionData({
+          abi: POLICY_DELEGATE_ABI,
+          functionName: 'createSessionKey',
+          args: [
+            wallet.address,
+            agentId as Address,
+            maxPerTxWei,
+            dailyLimitWei,
+            now,
+            expiry,
+            BigInt(cooldownSeconds),
+          ],
+        });
+
+        const hash = await wallet.walletClient.sendTransaction({
+          account,
+          to: wallet.address,
+          data,
+          chain: sepolia,
+        });
+
+        const receipt = await wallet.publicClient.waitForTransactionReceipt({ hash });
+
+        if (receipt.status === 'reverted') {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: toJSON({
+                success: false,
+                error: 'On-chain session key creation reverted',
+                txHash: hash,
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        txHash = hash;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: 'text' as const, text: toJSON({ error: `On-chain permission grant failed: ${message}` }) }],
+          isError: true,
+        };
+      }
+    }
+
+    // Commit local state only after on-chain succeeds (or if no on-chain needed)
+    policyEngine.updatePolicy(policyUpdates);
+    frozen = false;
+
+    const grant: Erc7715Grant = {
+      agentId,
+      permissions,
+      expiry,
+      cooldownSeconds,
+      grantedAt: Date.now(),
+      txHash,
+    };
+    permissionGrants.set(agentId, grant);
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: toJSON({
+          success: true,
+          standard: 'ERC-7715',
+          agentId,
+          permissions: permissions.map(p => ({
+            type: p.type,
+            token: p.token,
+            maxPerTx: p.maxPerTx !== undefined ? `${p.maxPerTx} USDT` : undefined,
+            dailyLimit: p.dailyLimit !== undefined ? `${p.dailyLimit} USDT` : undefined,
+            allowedRecipients: p.allowedRecipients,
+            allowedContracts: p.allowedContracts,
+          })),
+          expiry: new Date(expiry * 1000).toISOString(),
+          cooldownSeconds,
+          txHash: txHash ?? null,
+        }, 2),
+      }],
+    };
+  }
+);
+
+// ============================================================
+// Tool 13: Revoke Permissions (ERC-7715)
+// ============================================================
+
+server.tool(
+  'warden_revoke_permissions',
+  'Revoke all permissions from an AI agent following ERC-7715 standard. Zeros out policy limits, freezes the agent, and optionally revokes the on-chain session key.',
+  {
+    agentId: z.string().describe('Agent identifier to revoke permissions from'),
+  },
+  async ({ agentId }) => {
+    if (!policyEngine) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
+        isError: true,
+      };
+    }
+
+    const grant = permissionGrants.get(agentId);
+    if (!grant) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: `No ERC-7715 permissions found for agent: ${agentId}` }) }],
+        isError: true,
+      };
+    }
+
+    // On-chain revocation if delegate is configured
+    let txHash: string | undefined;
+    if (POLICY_DELEGATE_ADDRESS && publicClient && walletClient && storedPrivateKey) {
+      try {
+        const wallet = requireWallet();
+        const account = privateKeyToAccount(storedPrivateKey);
+
+        const data = encodeFunctionData({
+          abi: POLICY_DELEGATE_ABI,
+          functionName: 'revokeSessionKey',
+          args: [wallet.address, agentId as Address],
+        });
+
+        const hash = await wallet.walletClient.sendTransaction({
+          account,
+          to: wallet.address,
+          data,
+          chain: sepolia,
+        });
+
+        const receipt = await wallet.publicClient.waitForTransactionReceipt({ hash });
+
+        if (receipt.status === 'reverted') {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: toJSON({
+                success: false,
+                error: 'On-chain session key revocation reverted',
+                txHash: hash,
+              }),
+            }],
+            isError: true,
+          };
+        }
+
+        txHash = hash;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: 'text' as const, text: toJSON({ error: `On-chain permission revocation failed: ${message}` }) }],
+          isError: true,
+        };
+      }
+    }
+
+    // Zero out policy limits and freeze
+    policyEngine.updatePolicy({
+      maxPerTx: 0n,
+      dailyLimit: 0n,
+      allowedTokens: [],
+      allowedRecipients: [],
+      sessionKey: undefined,
+    });
+    frozen = true;
+
+    permissionGrants.delete(agentId);
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: toJSON({
+          success: true,
+          standard: 'ERC-7715',
+          agentId,
+          revoked: true,
+          frozen: true,
+          txHash: txHash ?? null,
+          message: 'All permissions revoked. Wallet is frozen.',
+        }, 2),
+      }],
+    };
+  }
+);
+
+// ============================================================
+// Tool 14: Get Permissions (ERC-7715)
+// ============================================================
+
+server.tool(
+  'warden_get_permissions',
+  'Query current permissions granted to an AI agent following ERC-7715 standard. Returns policy limits, expiry, spending status, and compliance info.',
+  {
+    agentId: z.string().describe('Agent identifier to query permissions for'),
+  },
+  async ({ agentId }) => {
+    if (!policyEngine) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: 'No wallet created. Call warden_create_wallet first.' }) }],
+        isError: true,
+      };
+    }
+
+    const grant = permissionGrants.get(agentId);
+    if (!grant) {
+      return {
+        content: [{ type: 'text' as const, text: toJSON({ error: `No ERC-7715 permissions found for agent: ${agentId}` }) }],
+        isError: true,
+      };
+    }
+
+    const policy = policyEngine.getPolicy();
+    const spending = policyEngine.getSpendingStatus();
+    const now = Math.floor(Date.now() / 1000);
+    const isExpired = grant.expiry <= now;
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: toJSON({
+          standard: 'ERC-7715',
+          agentId,
+          policy: {
+            maxPerTx: `${Number(policy.maxPerTx) / 1e6} USDT`,
+            dailyLimit: `${Number(policy.dailyLimit) / 1e6} USDT`,
+            cooldownMs: policy.cooldownMs,
+            allowedTokens: policy.allowedTokens,
+            allowedRecipients: policy.allowedRecipients,
+          },
+          permissions: grant.permissions.map(p => ({
+            type: p.type,
+            token: p.token,
+            maxPerTx: p.maxPerTx !== undefined ? `${p.maxPerTx} USDT` : undefined,
+            dailyLimit: p.dailyLimit !== undefined ? `${p.dailyLimit} USDT` : undefined,
+            allowedRecipients: p.allowedRecipients,
+            allowedContracts: p.allowedContracts,
+          })),
+          expiry: {
+            timestamp: grant.expiry,
+            iso: new Date(grant.expiry * 1000).toISOString(),
+            expired: isExpired,
+            remainingSeconds: isExpired ? 0 : grant.expiry - now,
+          },
+          spending: {
+            spent: `${Number(spending.spent) / 1e6} USDT`,
+            remaining: `${Number(spending.remaining) / 1e6} USDT`,
+            windowResets: new Date(spending.windowResets).toISOString(),
+          },
+          frozen,
+          grantedAt: new Date(grant.grantedAt).toISOString(),
+          txHash: grant.txHash ?? null,
+          erc7715Compliant: true,
+        }, 2),
+      }],
+    };
   }
 );
 

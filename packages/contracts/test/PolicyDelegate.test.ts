@@ -699,4 +699,227 @@ describe("PolicyDelegate", function () {
       ).to.be.revertedWithCustomError(policy, "RegistryAlreadySet");
     });
   });
+
+  describe("ERC-7715 Permission Events", function () {
+    let now: number;
+
+    beforeEach(async function () {
+      await policy.connect(owner).initializePolicy(recovery.address, 3600);
+      now = (await ethers.provider.getBlock("latest"))!.timestamp;
+    });
+
+    it("should emit PermissionsGranted on createSessionKey", async function () {
+      const validUntil = now + 86400;
+      await expect(
+        policy.connect(owner).createSessionKey(
+          owner.address, agent.address,
+          100_000000n, 500_000000n, now, validUntil, 60
+        )
+      ).to.emit(policy, "PermissionsGranted")
+        .withArgs(owner.address, agent.address, 100_000000n, 500_000000n, validUntil, 60);
+    });
+
+    it("should emit PermissionsRevoked on revokeSessionKey", async function () {
+      await policy.connect(owner).createSessionKey(
+        owner.address, agent.address,
+        100_000000n, 500_000000n, now, now + 86400, 0
+      );
+      await expect(
+        policy.connect(owner).revokeSessionKey(owner.address, agent.address)
+      ).to.emit(policy, "PermissionsRevoked")
+        .withArgs(owner.address, agent.address);
+    });
+  });
+
+  describe("ERC-7821 Minimal Batch Executor", function () {
+    let now: number;
+
+    beforeEach(async function () {
+      await policy.connect(owner).initializePolicy(recovery.address, 3600);
+      now = (await ethers.provider.getBlock("latest"))!.timestamp;
+      await policy.connect(owner).createSessionKey(
+        owner.address, agent.address,
+        100_000000n, 500_000000n, now, now + 86400, 0
+      );
+    });
+
+    function buildMode(modeType: number, sessionKeyAddr: string): string {
+      // mode[0] = modeType, mode[1:21] = sessionKey address, rest zero
+      const modeHex = ethers.zeroPadValue(
+        ethers.concat([
+          ethers.toBeHex(modeType, 1),
+          sessionKeyAddr,
+          ethers.zeroPadValue("0x", 11)
+        ]),
+        32
+      );
+      return modeHex;
+    }
+
+    it("should execute single call via ERC-7821", async function () {
+      const mode = buildMode(0x00, agent.address);
+      const executionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes"],
+        [recipient.address, 0, "0x"]
+      );
+
+      await expect(
+        policy.connect(owner)["execute(bytes32,bytes)"](mode, executionData)
+      ).to.emit(policy, "Executed");
+    });
+
+    it("should execute batch call via ERC-7821", async function () {
+      const mode = buildMode(0x01, agent.address);
+      const executionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address[]", "uint256[]", "bytes[]"],
+        [
+          [recipient.address, recovery.address],
+          [0, 0],
+          ["0x", "0x"]
+        ]
+      );
+
+      await expect(
+        policy.connect(owner)["execute(bytes32,bytes)"](mode, executionData)
+      ).to.emit(policy, "Executed");
+    });
+
+    it("should revert on unsupported mode byte", async function () {
+      const mode = buildMode(0x02, agent.address);
+      const executionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes"],
+        [recipient.address, 0, "0x"]
+      );
+
+      await expect(
+        policy.connect(owner)["execute(bytes32,bytes)"](mode, executionData)
+      ).to.be.revertedWith("Unsupported mode");
+    });
+
+    it("should reject empty batch in mode 0x01", async function () {
+      const mode = buildMode(0x01, agent.address);
+      const executionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address[]", "uint256[]", "bytes[]"],
+        [[], [], []]
+      );
+
+      await expect(
+        policy.connect(owner)["execute(bytes32,bytes)"](mode, executionData)
+      ).to.be.revertedWith("Empty batch");
+    });
+
+    it("should enforce policy limits via ERC-7821 single execute", async function () {
+      const mode = buildMode(0x00, agent.address);
+      const executionData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes"],
+        [recipient.address, 200_000000n, "0x"]
+      );
+
+      await expect(
+        policy.connect(owner)["execute(bytes32,bytes)"](mode, executionData)
+      ).to.be.revertedWith("Policy validation failed");
+    });
+  });
+
+  describe("ERC-7710 Delegation Redemption", function () {
+    let now: number;
+    let validUntil: number;
+
+    beforeEach(async function () {
+      await policy.connect(owner).initializePolicy(recovery.address, 3600);
+      now = (await ethers.provider.getBlock("latest"))!.timestamp;
+      validUntil = now + 86400;
+      await policy.connect(owner).createSessionKey(
+        owner.address, agent.address,
+        100_000000n, 500_000000n, now, validUntil, 0
+      );
+    });
+
+    it("should redeem a single delegation", async function () {
+      const delegation = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint48", "uint256", "uint256"],
+        [agent.address, validUntil, 100_000000n, 500_000000n]
+      );
+      const action = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes", "address"],
+        [recipient.address, 0, "0x", ethers.ZeroAddress]
+      );
+
+      await expect(
+        policy.connect(owner).redeemDelegations([delegation], [action])
+      ).to.emit(policy, "Executed");
+    });
+
+    it("should reject delegation with mismatched parameters", async function () {
+      const delegation = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint48", "uint256", "uint256"],
+        [agent.address, validUntil, 999_000000n, 500_000000n]
+      );
+      const action = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes", "address"],
+        [recipient.address, 0, "0x", ethers.ZeroAddress]
+      );
+
+      await expect(
+        policy.connect(owner).redeemDelegations([delegation], [action])
+      ).to.be.revertedWith("maxPerTx mismatch");
+    });
+
+    it("should reject delegation/action length mismatch", async function () {
+      const delegation = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint48", "uint256", "uint256"],
+        [agent.address, validUntil, 100_000000n, 500_000000n]
+      );
+
+      await expect(
+        policy.connect(owner).redeemDelegations([delegation], [])
+      ).to.be.revertedWith("Delegation/action length mismatch");
+    });
+
+    it("should reject empty delegations", async function () {
+      await expect(
+        policy.connect(owner).redeemDelegations([], [])
+      ).to.be.revertedWith("Empty delegations");
+    });
+
+    it("should enforce policy limits via redeemDelegations", async function () {
+      const delegation = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint48", "uint256", "uint256"],
+        [agent.address, validUntil, 100_000000n, 500_000000n]
+      );
+      const action = ethers.AbiCoder.defaultAbiCoder().encode(
+        ["address", "uint256", "bytes", "address"],
+        [recipient.address, 200_000000n, "0x", ethers.ZeroAddress]
+      );
+
+      await expect(
+        policy.connect(owner).redeemDelegations([delegation], [action])
+      ).to.be.revertedWith("Policy validation failed");
+    });
+  });
+
+  describe("ERC-165 supportsInterface", function () {
+    it("should support ERC-7821 interface", async function () {
+      // IERC7821 has one function: execute(bytes32,bytes) -> selector 0x... computed by type(IERC7821).interfaceId
+      const ierc7821Id = ethers.id("execute(bytes32,bytes)").slice(0, 10);
+      expect(await policy.supportsInterface(ierc7821Id)).to.be.true;
+    });
+
+    it("should support ERC-7710 interface", async function () {
+      const ierc7710Id = ethers.id("redeemDelegations(bytes[],bytes[])").slice(0, 10);
+      expect(await policy.supportsInterface(ierc7710Id)).to.be.true;
+    });
+
+    it("should support ERC-165 interface", async function () {
+      expect(await policy.supportsInterface("0x01ffc9a7")).to.be.true;
+    });
+
+    it("should return false for unsupported interface", async function () {
+      expect(await policy.supportsInterface("0xffffffff")).to.be.false;
+    });
+
+    it("should return false for random interface", async function () {
+      expect(await policy.supportsInterface("0xdeadbeef")).to.be.false;
+    });
+  });
 });

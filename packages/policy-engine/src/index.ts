@@ -18,6 +18,7 @@ export {
   getAllProtocolPolicies,
   type ProtocolPolicy,
 } from './ProtocolPolicies.js';
+export { ERC8004Manager } from './ERC8004Manager.js';
 export type {
   AgentPolicy,
   PolicyDecision,
