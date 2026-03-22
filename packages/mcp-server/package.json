@@ -1,6 +1,6 @@
 {
   "name": "@aspect-warden/mcp-server",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "type": "module",
   "bin": {
     "warden-mcp": "dist/index.js"
