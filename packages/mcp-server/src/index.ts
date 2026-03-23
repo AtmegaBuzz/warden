@@ -444,6 +444,7 @@ server.tool(
     auditLogger.log(decision);
 
     if (!decision.approved) {
+      const currentPolicy = policyEngine.getPolicy();
       return {
         content: [{
           type: 'text' as const,
@@ -453,6 +454,10 @@ server.tool(
             reason: decision.reason,
             ruleTriggered: decision.ruleTriggered,
             riskScore: decision.riskScore,
+            currentLimits: {
+              maxPerTx: `${Number(currentPolicy.maxPerTx) / 1e6} USDT`,
+              dailyLimit: `${Number(currentPolicy.dailyLimit) / 1e6} USDT`,
+            },
           }),
         }],
       };
@@ -644,6 +649,26 @@ server.tool(
     }
 
     policyEngine.updatePolicy(updates);
+
+    // Persist updated policy so it survives restarts
+    if (storedPrivateKey) {
+      const p = policyEngine.getPolicy();
+      saveState({
+        privateKey: storedPrivateKey,
+        agentId: p.agentId,
+        policy: {
+          maxPerTx: p.maxPerTx.toString(),
+          dailyLimit: p.dailyLimit.toString(),
+          requireApprovalAbove: p.requireApprovalAbove.toString(),
+          cooldownMs: p.cooldownMs,
+          allowedTokens: p.allowedTokens,
+          blockedTokens: p.blockedTokens,
+          allowedRecipients: p.allowedRecipients,
+          blockedRecipients: p.blockedRecipients,
+          allowedChains: p.allowedChains,
+        },
+      });
+    }
 
     return {
       content: [{
