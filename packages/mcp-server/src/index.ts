@@ -19,6 +19,10 @@ import {
 } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
+import { createHash, createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 // ============================================================
 // Configuration from environment
@@ -57,6 +61,81 @@ const ERC8004_ABI = parseAbi([
 ]);
 
 // PolicyEngine and AuditLogger imported from @aspect-warden/policy-engine
+
+// ============================================================
+// Encrypted Wallet Persistence
+// ============================================================
+
+const STORAGE_DIR = join(homedir(), '.warden');
+const STATE_FILE = join(STORAGE_DIR, 'wallet-state.enc');
+
+// Derive a 32-byte AES key from a passphrase
+function deriveKey(passphrase: string): Buffer {
+  return createHash('sha256').update(passphrase).digest();
+}
+
+function encrypt(data: string, passphrase: string): string {
+  const key = deriveKey(passphrase);
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-cbc', key, iv);
+  let encrypted = cipher.update(data, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+function decrypt(payload: string, passphrase: string): string {
+  const key = deriveKey(passphrase);
+  const [ivHex, encrypted] = payload.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', key, iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+interface PersistedState {
+  privateKey: string;
+  agentId: string;
+  policy: {
+    maxPerTx: string;
+    dailyLimit: string;
+    requireApprovalAbove: string;
+    cooldownMs: number;
+    allowedTokens: string[];
+    blockedTokens: string[];
+    allowedRecipients: string[];
+    blockedRecipients: string[];
+    allowedChains: string[];
+  };
+}
+
+const STORAGE_KEY = process.env.WARDEN_STORAGE_KEY || `warden-${homedir()}`;
+
+function saveState(state: PersistedState): void {
+  try {
+    if (!existsSync(STORAGE_DIR)) {
+      mkdirSync(STORAGE_DIR, { recursive: true, mode: 0o700 });
+    }
+    const json = JSON.stringify(state);
+    const encrypted = encrypt(json, STORAGE_KEY);
+    writeFileSync(STATE_FILE, encrypted, { mode: 0o600 });
+    console.error('[Warden MCP] Wallet state saved to ~/.warden/wallet-state.enc');
+  } catch (err) {
+    console.error('[Warden MCP] Failed to save wallet state:', err);
+  }
+}
+
+function loadState(): PersistedState | null {
+  try {
+    if (!existsSync(STATE_FILE)) return null;
+    const encrypted = readFileSync(STATE_FILE, 'utf8');
+    const json = decrypt(encrypted, STORAGE_KEY);
+    return JSON.parse(json) as PersistedState;
+  } catch (err) {
+    console.error('[Warden MCP] Failed to load wallet state (may be from different key):', err);
+    return null;
+  }
+}
 
 // ============================================================
 // MCP Server State
@@ -193,6 +272,23 @@ server.tool(
     policyEngine = new PolicyEngine(policy);
     auditLogger = new AuditLogger({ maxEntries: 10000 });
     frozen = false;
+
+    // Persist wallet state for recovery across restarts
+    saveState({
+      privateKey: storedPrivateKey!,
+      agentId,
+      policy: {
+        maxPerTx: policy.maxPerTx.toString(),
+        dailyLimit: policy.dailyLimit.toString(),
+        requireApprovalAbove: policy.requireApprovalAbove.toString(),
+        cooldownMs: policy.cooldownMs,
+        allowedTokens: policy.allowedTokens,
+        blockedTokens: policy.blockedTokens,
+        allowedRecipients: policy.allowedRecipients,
+        blockedRecipients: policy.blockedRecipients,
+        allowedChains: policy.allowedChains,
+      },
+    });
 
     return {
       content: [{
@@ -1280,6 +1376,37 @@ server.tool(
 // ============================================================
 
 async function main(): Promise<void> {
+  // Restore wallet state from previous session if available
+  const saved = loadState();
+  if (saved) {
+    try {
+      initializeClients(saved.privateKey as Hex);
+      const restoredPolicy: AgentPolicy = {
+        agentId: saved.agentId,
+        maxPerTx: BigInt(saved.policy.maxPerTx),
+        dailyLimit: BigInt(saved.policy.dailyLimit),
+        requireApprovalAbove: BigInt(saved.policy.requireApprovalAbove),
+        cooldownMs: saved.policy.cooldownMs,
+        allowedTokens: saved.policy.allowedTokens,
+        blockedTokens: saved.policy.blockedTokens,
+        allowedRecipients: saved.policy.allowedRecipients,
+        blockedRecipients: saved.policy.blockedRecipients,
+        allowedChains: saved.policy.allowedChains,
+        anomalyDetection: {
+          maxTxPerHour: 20,
+          maxRecipientsPerHour: 5,
+          largeTransactionPct: 50,
+        },
+      };
+      policyEngine = new PolicyEngine(restoredPolicy);
+      auditLogger = new AuditLogger({ maxEntries: 10000 });
+      frozen = false;
+      console.error(`[Warden MCP] Restored wallet ${walletAddress} (agent: ${saved.agentId})`);
+    } catch (err) {
+      console.error('[Warden MCP] Failed to restore wallet state:', err);
+    }
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('[Warden MCP] Server running on stdio');

@@ -51,6 +51,7 @@ npx skills add tetherto/wdk-agent-skills
 | `POLICY_DELEGATE_ADDRESS` | No | — | Deployed PolicyDelegate contract for EIP-7702 |
 | `SEPOLIA_USDT_ADDRESS` | No | `0x7169...BA06` | USDT token address on Sepolia |
 | `ERC8004_IDENTITY_REGISTRY` | No | — | ERC-8004 identity registry address |
+| `WARDEN_STORAGE_KEY` | No | machine-scoped | Passphrase for encrypting persisted wallet state |
 
 ## MCP Tools
 
@@ -122,6 +123,17 @@ Agent: [calls warden_transfer — PolicyEngine blocks it]
        Transfer blocked: exceeds daily limit of 50 USDT.
        Current daily spend: 5 USDT.
 ```
+
+## Wallet Persistence
+
+Wallet private keys and policy configuration are automatically saved to `~/.warden/wallet-state.enc` using AES-256-CBC encryption. When the MCP server restarts (e.g., Claude Desktop relaunch), it restores the previous wallet — no need to call `warden_create_wallet` again.
+
+- **Storage**: `~/.warden/wallet-state.enc` (encrypted, file permissions `0600`)
+- **Encryption**: AES-256-CBC with key derived from `WARDEN_STORAGE_KEY` env var (or machine-scoped default)
+- **What's persisted**: private key, agent ID, policy configuration
+- **What's NOT persisted**: spending counters, audit logs, session keys (reset on restart)
+
+To use a different wallet, simply call `warden_create_wallet` again — it overwrites the saved state.
 
 ## Architecture
 
