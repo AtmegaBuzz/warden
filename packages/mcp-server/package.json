@@ -1,6 +1,6 @@
 {
   "name": "@aspect-warden/mcp-server",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "bin": {
     "warden-mcp": "dist/index.js"
@@ -12,7 +12,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@aspect-warden/policy-engine": "^0.3.0",
+    "@aspect-warden/policy-engine": "^0.5.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.0",
     "viem": "^2.0.0"
