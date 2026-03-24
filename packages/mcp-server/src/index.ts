@@ -93,35 +93,82 @@ function decrypt(payload: string, passphrase: string): string {
   return decrypted;
 }
 
+interface PersistedPolicy {
+  maxPerTx: string;
+  dailyLimit: string;
+  requireApprovalAbove: string;
+  cooldownMs: number;
+  allowedTokens: string[];
+  blockedTokens: string[];
+  allowedRecipients: string[];
+  blockedRecipients: string[];
+  allowedChains: string[];
+}
+
 interface PersistedState {
   privateKey: string;
   agentId: string;
-  policy: {
-    maxPerTx: string;
-    dailyLimit: string;
-    requireApprovalAbove: string;
-    cooldownMs: number;
-    allowedTokens: string[];
-    blockedTokens: string[];
-    allowedRecipients: string[];
-    blockedRecipients: string[];
-    allowedChains: string[];
-  };
+  policy: PersistedPolicy;
+  tracker?: Record<string, unknown>;
+  auditLog?: unknown[];
+  frozen?: boolean;
+  sessionKeys?: Array<{ key: string; data: Record<string, unknown> }>;
+  permissionGrants?: Array<{ key: string; data: Erc7715Grant }>;
 }
 
 const STORAGE_KEY = process.env.WARDEN_STORAGE_KEY || `warden-${homedir()}`;
 
-function saveState(state: PersistedState): void {
+function ensureStorageDir(): void {
+  if (!existsSync(STORAGE_DIR)) {
+    mkdirSync(STORAGE_DIR, { recursive: true, mode: 0o700 });
+  }
+}
+
+function saveFullState(): void {
+  if (!storedPrivateKey || !policyEngine) return;
   try {
-    if (!existsSync(STORAGE_DIR)) {
-      mkdirSync(STORAGE_DIR, { recursive: true, mode: 0o700 });
-    }
+    ensureStorageDir();
+    const p = policyEngine.getPolicy();
+    const state: PersistedState = {
+      privateKey: storedPrivateKey,
+      agentId: p.agentId,
+      policy: {
+        maxPerTx: p.maxPerTx.toString(),
+        dailyLimit: p.dailyLimit.toString(),
+        requireApprovalAbove: p.requireApprovalAbove.toString(),
+        cooldownMs: p.cooldownMs,
+        allowedTokens: p.allowedTokens,
+        blockedTokens: p.blockedTokens,
+        allowedRecipients: p.allowedRecipients,
+        blockedRecipients: p.blockedRecipients,
+        allowedChains: p.allowedChains,
+      },
+      tracker: policyEngine.exportTracker(),
+      auditLog: auditLogger?.exportEntries() ?? [],
+      frozen,
+      sessionKeys: Array.from(sessionKeys.entries()).map(([key, data]) => ({
+        key,
+        data: {
+          agentAddress: data.agentAddress,
+          maxPerTx: data.maxPerTx.toString(),
+          dailyLimit: data.dailyLimit.toString(),
+          validUntil: data.validUntil,
+          cooldownSeconds: data.cooldownSeconds,
+          createdAt: data.createdAt,
+          revoked: data.revoked,
+          txHash: data.txHash,
+        },
+      })),
+      permissionGrants: Array.from(permissionGrants.entries()).map(([key, data]) => ({
+        key, data,
+      })),
+    };
     const json = JSON.stringify(state);
     const encrypted = encrypt(json, STORAGE_KEY);
     writeFileSync(STATE_FILE, encrypted, { mode: 0o600 });
-    console.error('[Warden MCP] Wallet state saved to ~/.warden/wallet-state.enc');
+    console.error('[Warden MCP] Full state saved to ~/.warden/wallet-state.enc');
   } catch (err) {
-    console.error('[Warden MCP] Failed to save wallet state:', err);
+    console.error('[Warden MCP] Failed to save state:', err);
   }
 }
 
@@ -273,22 +320,8 @@ server.tool(
     auditLogger = new AuditLogger({ maxEntries: 10000 });
     frozen = false;
 
-    // Persist wallet state for recovery across restarts
-    saveState({
-      privateKey: storedPrivateKey!,
-      agentId,
-      policy: {
-        maxPerTx: policy.maxPerTx.toString(),
-        dailyLimit: policy.dailyLimit.toString(),
-        requireApprovalAbove: policy.requireApprovalAbove.toString(),
-        cooldownMs: policy.cooldownMs,
-        allowedTokens: policy.allowedTokens,
-        blockedTokens: policy.blockedTokens,
-        allowedRecipients: policy.allowedRecipients,
-        blockedRecipients: policy.blockedRecipients,
-        allowedChains: policy.allowedChains,
-      },
-    });
+    // Persist full state for recovery across restarts
+    saveFullState();
 
     return {
       content: [{
@@ -442,6 +475,7 @@ server.tool(
     const valueMicro = BigInt(Math.round(amount * 1e6));
     const decision = policyEngine.evaluate(recipient, valueMicro, tokenAddress, 'ethereum');
     auditLogger.log(decision);
+    saveFullState(); // Persist audit log entry (blocked or approved)
 
     if (!decision.approved) {
       const currentPolicy = policyEngine.getPolicy();
@@ -506,6 +540,9 @@ server.tool(
         blockNumber: Number(receipt.blockNumber),
         gasUsed: receipt.gasUsed,
       });
+
+      // Persist spending tracker + audit log after successful transfer
+      saveFullState();
 
       return {
         content: [{
@@ -651,24 +688,7 @@ server.tool(
     policyEngine.updatePolicy(updates);
 
     // Persist updated policy so it survives restarts
-    if (storedPrivateKey) {
-      const p = policyEngine.getPolicy();
-      saveState({
-        privateKey: storedPrivateKey,
-        agentId: p.agentId,
-        policy: {
-          maxPerTx: p.maxPerTx.toString(),
-          dailyLimit: p.dailyLimit.toString(),
-          requireApprovalAbove: p.requireApprovalAbove.toString(),
-          cooldownMs: p.cooldownMs,
-          allowedTokens: p.allowedTokens,
-          blockedTokens: p.blockedTokens,
-          allowedRecipients: p.allowedRecipients,
-          blockedRecipients: p.blockedRecipients,
-          allowedChains: p.allowedChains,
-        },
-      });
-    }
+    saveFullState();
 
     return {
       content: [{
@@ -689,6 +709,7 @@ server.tool(
   {},
   async () => {
     frozen = true;
+    saveFullState();
 
     return {
       content: [{
@@ -713,6 +734,7 @@ server.tool(
   {},
   async () => {
     frozen = false;
+    saveFullState();
 
     return {
       content: [{
@@ -819,6 +841,7 @@ server.tool(
       };
 
       sessionKeys.set(agentAddress.toLowerCase(), sessionData);
+      saveFullState();
 
       return {
         content: [{
@@ -910,6 +933,7 @@ server.tool(
         }
 
         session.revoked = true;
+        saveFullState();
 
         return {
           content: [{
@@ -934,6 +958,7 @@ server.tool(
     }
 
     session.revoked = true;
+    saveFullState();
 
     return {
       content: [{
@@ -1197,6 +1222,7 @@ server.tool(
       txHash,
     };
     permissionGrants.set(agentId, grant);
+    saveFullState();
 
     return {
       content: [{
@@ -1305,6 +1331,7 @@ server.tool(
     frozen = true;
 
     permissionGrants.delete(agentId);
+    saveFullState();
 
     return {
       content: [{
@@ -1425,8 +1452,48 @@ async function main(): Promise<void> {
       };
       policyEngine = new PolicyEngine(restoredPolicy);
       auditLogger = new AuditLogger({ maxEntries: 10000 });
-      frozen = false;
-      console.error(`[Warden MCP] Restored wallet ${walletAddress} (agent: ${saved.agentId})`);
+
+      // Restore spending tracker
+      if (saved.tracker) {
+        policyEngine.importTracker(saved.tracker);
+        console.error('[Warden MCP] Restored spending tracker');
+      }
+
+      // Restore audit log
+      if (saved.auditLog && Array.isArray(saved.auditLog)) {
+        auditLogger.loadEntries(saved.auditLog);
+        console.error(`[Warden MCP] Restored ${saved.auditLog.length} audit log entries`);
+      }
+
+      // Restore frozen state
+      frozen = saved.frozen ?? false;
+
+      // Restore session keys
+      if (saved.sessionKeys) {
+        for (const { key, data } of saved.sessionKeys) {
+          sessionKeys.set(key, {
+            agentAddress: data.agentAddress as string,
+            maxPerTx: BigInt((data.maxPerTx as string) || '0'),
+            dailyLimit: BigInt((data.dailyLimit as string) || '0'),
+            validUntil: data.validUntil as number,
+            cooldownSeconds: data.cooldownSeconds as number,
+            createdAt: data.createdAt as number,
+            revoked: data.revoked as boolean,
+            txHash: data.txHash as string | undefined,
+          });
+        }
+        console.error(`[Warden MCP] Restored ${saved.sessionKeys.length} session keys`);
+      }
+
+      // Restore permission grants
+      if (saved.permissionGrants) {
+        for (const { key, data } of saved.permissionGrants) {
+          permissionGrants.set(key, data);
+        }
+        console.error(`[Warden MCP] Restored ${saved.permissionGrants.length} permission grants`);
+      }
+
+      console.error(`[Warden MCP] Restored wallet ${walletAddress} (agent: ${saved.agentId}, frozen: ${frozen})`);
     } catch (err) {
       console.error('[Warden MCP] Failed to restore wallet state:', err);
     }

@@ -130,8 +130,8 @@ Wallet private keys and policy configuration are automatically saved to `~/.ward
 
 - **Storage**: `~/.warden/wallet-state.enc` (encrypted, file permissions `0600`)
 - **Encryption**: AES-256-CBC with key derived from `WARDEN_STORAGE_KEY` env var (or machine-scoped default)
-- **What's persisted**: private key, agent ID, policy configuration
-- **What's NOT persisted**: spending counters, audit logs, session keys (reset on restart)
+- **What's persisted**: private key, agent ID, policy configuration, spending tracker, audit log, frozen state, session keys, permission grants
+- **Full state recovery**: everything survives restarts — works seamlessly with OpenClaw and other MCP clients that may restart the server between calls
 
 To use a different wallet, simply call `warden_create_wallet` again — it overwrites the saved state.
 

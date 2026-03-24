@@ -67,4 +67,39 @@ export class AuditLogger {
       typeof value === 'bigint' ? value.toString() : value
     );
   }
+
+  /** Export entries for persistence (bigints as strings) */
+  exportEntries(): unknown[] {
+    return JSON.parse(this.toJSON());
+  }
+
+  /** Import entries from persisted data */
+  loadEntries(data: unknown[]): void {
+    if (!Array.isArray(data)) return;
+    for (const raw of data) {
+      const entry = raw as Record<string, unknown>;
+      const td = entry.transactionDetails as Record<string, unknown>;
+      this.entries.push({
+        approved: entry.approved as boolean,
+        reason: entry.reason as string,
+        ruleTriggered: (entry.ruleTriggered as string) || null,
+        timestamp: entry.timestamp as number,
+        agentId: entry.agentId as string,
+        riskScore: entry.riskScore as number | undefined,
+        riskFactors: entry.riskFactors as AuditEntry['riskFactors'],
+        transactionDetails: {
+          to: td.to as string,
+          value: BigInt(td.value as string || '0'),
+          token: td.token as string | undefined,
+          chain: td.chain as string,
+        },
+        txHash: entry.txHash as string | undefined,
+        blockNumber: entry.blockNumber as number | undefined,
+        gasUsed: entry.gasUsed ? BigInt(entry.gasUsed as string) : undefined,
+      });
+    }
+    if (this.entries.length > this.maxEntries) {
+      this.entries = this.entries.slice(-this.maxEntries);
+    }
+  }
 }

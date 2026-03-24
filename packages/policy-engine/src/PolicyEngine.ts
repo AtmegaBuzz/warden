@@ -481,6 +481,47 @@ export class PolicyEngine {
     return this.policy;
   }
 
+  /** Export spending tracker for persistence (bigints serialized as strings) */
+  exportTracker(): Record<string, unknown> {
+    return {
+      spent: this.tracker.spent.toString(),
+      windowStart: this.tracker.windowStart,
+      lastTxTimestamp: this.tracker.lastTxTimestamp,
+      txTimestamps: this.tracker.txTimestamps,
+      recentRecipients: this.tracker.recentRecipients,
+      recentAmounts: this.tracker.recentAmounts.map(a => a.toString()),
+      txCount: this.tracker.txCount,
+      weeklySpent: this.tracker.weeklySpent.toString(),
+      weeklyWindowStart: this.tracker.weeklyWindowStart,
+      monthlySpent: this.tracker.monthlySpent.toString(),
+      monthlyWindowStart: this.tracker.monthlyWindowStart,
+      recipientSpendMap: Object.fromEntries(
+        Object.entries(this.tracker.recipientSpendMap).map(([k, v]) => [k, v.toString()])
+      ),
+    };
+  }
+
+  /** Import spending tracker from persisted data */
+  importTracker(data: Record<string, unknown>): void {
+    if (!data) return;
+    this.tracker = {
+      spent: BigInt((data.spent as string) || '0'),
+      windowStart: (data.windowStart as number) || Date.now(),
+      lastTxTimestamp: (data.lastTxTimestamp as number) || 0,
+      txTimestamps: (data.txTimestamps as number[]) || [],
+      recentRecipients: (data.recentRecipients as string[]) || [],
+      recentAmounts: ((data.recentAmounts as string[]) || []).map(a => BigInt(a)),
+      txCount: (data.txCount as number) || 0,
+      weeklySpent: BigInt((data.weeklySpent as string) || '0'),
+      weeklyWindowStart: (data.weeklyWindowStart as number) || Date.now(),
+      monthlySpent: BigInt((data.monthlySpent as string) || '0'),
+      monthlyWindowStart: (data.monthlyWindowStart as number) || Date.now(),
+      recipientSpendMap: Object.fromEntries(
+        Object.entries((data.recipientSpendMap as Record<string, string>) || {}).map(([k, v]) => [k, BigInt(v)])
+      ),
+    };
+  }
+
   // ============ Window Resets ============
 
   private resetWindowIfExpired(): void {
